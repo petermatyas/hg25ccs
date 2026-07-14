@@ -1,0 +1,9 @@
+fastapi
+fastapi[standard]
+uvicorn
+dotenv
+python-multipart
+sqlalchemy
+Pillow
+pytz
+fpdf2

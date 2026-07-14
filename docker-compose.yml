@@ -1,0 +1,58 @@
+services:
+  ccs_backend:
+    build: ./ccs_backend
+    container_name: ccs_backend
+    restart: unless-stopped
+    # Szándékosan NINCS "ports:" - a backend csak a belső docker
+    # hálózaton (ccs_internal) érhető el, a webről nem látszik.
+    # Csak a ccs_frontend (nginx proxy) tudja elérni.
+    expose:
+      - "8800"
+    volumes:
+      # Feltöltött QSL kártyák / adatbázis megőrzése újraindítás után.
+      - ./ccs_backend/qsls:/code/app/qsls
+      - ./ccs_backend/database:/code/app/database
+    networks:
+      - ccs_internal
+
+  ccs_frontend:
+    image: nginx:1.27-alpine
+    container_name: ccs_frontend
+    restart: unless-stopped
+    depends_on:
+      - ccs_backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ccs_frontend/html:/var/www/html:ro
+      - ./ccs_frontend/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    networks:
+      - ccs_internal
+      - ccs_public
+    # Az nginx 12 óránként újratölti a konfigot, hogy a certbot által
+    # megújított tanúsítványokat felvegye.
+    command: >
+      /bin/sh -c 'while :; do sleep 12h & wait $${!}; nginx -s reload; done & nginx -g "daemon off;"'
+
+  certbot:
+    image: certbot/certbot
+    container_name: ccs_certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    # 12 óránként megpróbálja megújítani a tanúsítványt (a certbot csak
+    # a lejárathoz közel újít ténylegesen).
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done'
+
+networks:
+  # Belső hálózat: frontend <-> backend. internal: true miatt nincs kifelé
+  # útvonala, így a backend semmiképp nem érhető el a webről.
+  ccs_internal:
+    internal: true
+  # Publikus hálózat: csak a frontend nginx van rajta, ez fogadja a 80/443-at.
+  ccs_public:

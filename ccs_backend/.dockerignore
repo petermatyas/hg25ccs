@@ -1,0 +1,39 @@
+# Python virtuális környezet és cache
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Környezeti / titkos fájlok
+.env
+.env.*
+*.local
+
+# Runtime / generált adatok (ezek volume-ként mountolódnak, nem az image-be valók)
+qsls/
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Verziókövetés és IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+
+# OS szemét
+.DS_Store
+Thumbs.db
+
+# Dokumentáció / docker fájlok (nem kellenek a runtime image-be)
+Dockerfile
+.dockerignore
+README*
