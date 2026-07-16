@@ -1,0 +1,31 @@
+Amit létrehoztam
+Fájl	Mi ez
+docker-compose.yml	A közös stack
+conf/ccs_frontend.conf	A hg25ccs nginx configja, TLS nélkül
+.env.example	Infra: a Traefik Let's Encrypt email címe
+hg25ccs/.env.example	A ccs backend titkai (CCS_AUTH_SECRET)
+A meglévő docker-compose.yml-eket a két repóban nem bántottam, de ezzel feleslegessé váltak, ahogy a két init-letsencrypt.sh is — a Traefik magától kiállítja és újítja a certeket.
+
+Hogy néz ki
+Egyetlen Traefik fogadja a 80/443-at és terminálja a TLS-t mindhárom domainhez, mögötte minden sima HTTP a docker hálózaton. A hg25ccs.eu nginxéből ezért kivettem a TLS-t és a HTTP→HTTPS redirectet (ezért kellett új config fájl), és .hu-ról .eu-ra írtam a domaint; a www.hg25ccs.eu 301-gyel az apexre megy.
+
+A backendek elrejtése két rétegű: egyiknek sincs ports: kulcsa, tehát semmilyen host-portra nem publikálódnak, ráadásul a ccs_internal és a notes_data hálózat internal: true, vagyis se be-, se kifelé nincs útvonaluk.
+
+Egy dolgot viszont szándékosan nem zártam le teljesen: a note backendje a notes_app hálózaton van, ami nem internal. Kiderült ugyanis, hogy kifelé hív — Google ID-token ellenőrzés, Nominatim geokódolás, árfolyam-lekérés, OpenFoodFacts —, ezek internal: true alatt mind elhalnának, a Google-loginnal együtt. Bejövő forgalmat így sem kap, mert nincs publikált portja. A postgres és a redis viszont nem hív sehova, azok mennek a teljesen zárt notes_data-ra.
+
+Mielőtt elindítod
+A legfontosabb buktató: a régi compose a DATABASE_URL-t és a REDIS_URL-t maga állította be, most viszont a note_app_v2/.env-ből jönnek (mert jelszó van bennük, és te projektenkénti .env-et kértél). Az .env.example-ben ez a két sor ki van kommentelve, hogy a lokális futtatás SQLite-ot használjon — ha a szerveren így hagyod, a backend némán SQLite-ra esik vissza, a postgres meg üresen áll. Ezt kommentként a compose-ba is beírtam a notes_backend fölé.
+
+A többi lépés:
+
+
+# /srv-be klónozd a két repót a docker-compose.yml mellé, majd:
+cp .env.example .env                                # LETSENCRYPT_EMAIL
+cp hg25ccs/.env.example hg25ccs/.env                # openssl rand -hex 32
+cp note_app_v2/.env.example note_app_v2/.env        # lásd fent + erős jelszavak
+docker compose up -d --build
+A note_app_v2/.env-ben élesben állítsd át ezeket is: CORS_ORIGINS=https://notes.ha1mp.hu, AUTH_COOKIE_SECURE=true, ENV=production, PUBLIC_API_URL=https://notes.ha1mp.hu/api/v1, plusz a POSTGRES_PASSWORD, SECRET_KEY és DEFAULT_ADMIN_PASSWORD.
+
+DNS-ből mind az öt névnek a szerver IP-jére kell mutatnia a docker compose up előtt, különben a Let's Encrypt HTTP-challenge elbukik: hg25ccs.eu, www.hg25ccs.eu, notes.ha1mp.hu, ha1mp.hu, www.ha1mp.hu. A tűzfalon a 80 és a 443 kell nyitva legyen — a 80 nem elhagyható, a challenge azon megy.
+
+Egy megjegyzés: a notes_db és a notes_backend ugyanazt a .env-et kapja, így a postgres konténer látja a Google-titkokat is. Ez a szokásos minta, de ha zavar, szétszedhetem külön db-env fájlra.
