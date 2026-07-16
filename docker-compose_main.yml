@@ -1,0 +1,266 @@
+# =============================================================================
+#  Közös éles stack: hg25ccs.eu + notes.ha1mp.hu + ha1mp.hu
+# =============================================================================
+#
+#  Elrendezés a szerveren:
+#
+#    /srv/
+#      docker-compose.yml      <- ez a fájl
+#      .env                    <- infra (Traefik ACME email)
+#      conf/ccs_frontend.conf  <- a hg25ccs nginx configja (HTTP-only, TLS a Traefiké)
+#      hg25ccs/                <- git clone
+#        .env                  <- a hg25ccs titkai
+#      note_app_v2/            <- git clone
+#        .env                  <- a note_app titkai
+#
+#  Hálózati felépítés (miért nem látszik a backend a webről):
+#
+#    internet ──► traefik (az EGYETLEN service published porttal: 80/443)
+#                   │  [edge]
+#                   ├──► ccs_frontend ──[ccs_internal]──► ccs_backend
+#                   ├──► notes_frontend ─[notes_app]───► notes_backend ──┐
+#                   └──► ha1mp_landing                                   │
+#                                                          [notes_data]  │
+#                                                       db, redis ◄──────┘
+#
+#  A backendeknek NINCS "ports:" kulcsuk, így semmilyen host-portra nem
+#  publikálódnak – kívülről nem címezhetők, csak a saját proxyjukon át.
+#  A ccs_internal és a notes_data "internal: true": ezekre a hálózatokra
+#  se be-, se kifelé nincs útvonal.
+#  A notes_app SZÁNDÉKOSAN nem internal: a note backend kifelé hív
+#  (Google ID-token ellenőrzés, Nominatim, árfolyam, OpenFoodFacts).
+#  Bejövő forgalmat így sem kap, mert nincs publikált portja.
+# =============================================================================
+
+# A compose projekt neve. Explicit, hogy ne a mappanévtől függjön (a volume-ok
+# és a konténerek elnevezése ebből jön – egy átnevezett mappa különben új,
+# üres volume-okat jelentene).
+name: ha1mp
+
+services:
+
+  # ---------------------------------------------------------------------------
+  #  Traefik – az egyetlen belépési pont. Itt ér véget a TLS, innentől
+  #  a belső forgalom sima HTTP a docker hálózaton.
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      # Csak az kap routert, amin explicit "traefik.enable=true" label van.
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=edge"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Minden HTTP kérés 301-gyel HTTPS-re megy. Az ACME challenge-et a
+      # Traefik ez alól automatikusan kiveszi, így a cert kiállítás működik.
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.le.acme.httpchallenge=true"
+      - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.le.acme.email=${LETSENCRYPT_EMAIL:?Allitsd be a LETSENCRYPT_EMAIL-t a /srv/.env-ben}"
+      - "--certificatesresolvers.le.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # A Traefik innen olvassa ki a többi konténer labeljeit. Read-only,
+      # de a docker socket így is erős jogosultság – ezért nincs rajta
+      # semmilyen más service.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # A kiállított tanúsítványok. NE töröld: benne van az acme.json.
+      - letsencrypt:/letsencrypt
+    networks:
+      - edge
+
+  # ===========================================================================
+  #  hg25ccs.eu
+  # ===========================================================================
+
+  # Statikus HTML + /api proxy. TLS-t már nem csinál, azt a Traefik intézi.
+  ccs_frontend:
+    image: nginx:1.27-alpine
+    container_name: ccs_frontend
+    restart: unless-stopped
+    depends_on:
+      - ccs_backend
+    volumes:
+      - ./hg25ccs/ccs_frontend/html:/var/www/html:ro
+      - ./conf/ccs_frontend.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - edge
+      - ccs_internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      # Az apex domain: ezt szolgáljuk ki.
+      - "traefik.http.routers.ccs.rule=Host(`hg25ccs.eu`)"
+      - "traefik.http.routers.ccs.entrypoints=websecure"
+      - "traefik.http.routers.ccs.tls.certresolver=le"
+      # A www variáns csak átirányít az apexre (egy kanonikus URL).
+      - "traefik.http.routers.ccs-www.rule=Host(`www.hg25ccs.eu`)"
+      - "traefik.http.routers.ccs-www.entrypoints=websecure"
+      - "traefik.http.routers.ccs-www.tls.certresolver=le"
+      - "traefik.http.routers.ccs-www.middlewares=ccs-www-redirect"
+      - "traefik.http.middlewares.ccs-www-redirect.redirectregex.regex=^https://www\\.hg25ccs\\.eu/(.*)"
+      - "traefik.http.middlewares.ccs-www-redirect.redirectregex.replacement=https://hg25ccs.eu/$${1}"
+      - "traefik.http.middlewares.ccs-www-redirect.redirectregex.permanent=true"
+      - "traefik.http.services.ccs.loadbalancer.server.port=80"
+
+  ccs_backend:
+    build: ./hg25ccs/ccs_backend
+    container_name: ccs_backend
+    restart: unless-stopped
+    env_file:
+      - ./hg25ccs/.env
+    # Se "ports", se Traefik label -> a webről elérhetetlen. Csak a
+    # ccs_frontend éri el, a ccs_internal hálózaton.
+    expose:
+      - "8800"
+    volumes:
+      # Feltöltött QSL kártyák és az adatbázis túléli az újraindítást.
+      - ./hg25ccs/ccs_backend/qsls:/code/app/qsls
+      - ./hg25ccs/ccs_backend/database:/code/app/database
+    networks:
+      - ccs_internal
+
+  # ===========================================================================
+  #  notes.ha1mp.hu
+  # ===========================================================================
+
+  notes_frontend:
+    build: ./note_app_v2/frontend
+    container_name: notes_frontend
+    restart: unless-stopped
+    depends_on:
+      - notes_backend
+    expose:
+      - "80"
+    networks:
+      - edge
+      - notes_app
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      - "traefik.http.routers.notes.rule=Host(`notes.ha1mp.hu`)"
+      - "traefik.http.routers.notes.entrypoints=websecure"
+      - "traefik.http.routers.notes.tls.certresolver=le"
+      - "traefik.http.services.notes.loadbalancer.server.port=80"
+
+  notes_backend:
+    build: ./note_app_v2/backend
+    container_name: notes_backend
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003
+    env_file:
+      # ⚠️ FIGYELEM: a régi compose a DATABASE_URL-t és a REDIS_URL-t itt,
+      # az "environment" blokkban állította be. Most a .env-ből jönnek, mert
+      # a jelszó is bennük van. A note_app_v2/.env.example-ben ez a két sor
+      # KI VAN KOMMENTELVE (hogy a lokális futtatás SQLite-ot használjon) –
+      # a szerveren MINDKETTŐT vedd ki a kommentből, különben a backend némán
+      # SQLite-ra esik vissza és a postgres üresen áll:
+      #   DATABASE_URL=postgresql://<user>:<jelszo>@db:5432/notedb
+      #   REDIS_URL=redis://redis:6379/0
+      - ./note_app_v2/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+    expose:
+      - "8003"
+    networks:
+      notes_app:
+        # A frontend nginx.conf-ja fixen "http://backend:8003"-ra proxyz,
+        # ezért ezen a néven is fel kell oldódnia.
+        aliases:
+          - backend
+      notes_data:
+    depends_on:
+      notes_db:
+        condition: service_healthy
+      notes_redis:
+        condition: service_started
+
+  notes_db:
+    image: postgres:16
+    container_name: notes_db
+    restart: unless-stopped
+    env_file:
+      # Innen jön a POSTGRES_USER és a POSTGRES_PASSWORD.
+      - ./note_app_v2/.env
+    environment:
+      POSTGRES_DB: notedb
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d notedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      notes_data:
+        aliases:
+          - db
+
+  notes_redis:
+    image: redis:7
+    container_name: notes_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks:
+      notes_data:
+        aliases:
+          - redis
+
+  # ===========================================================================
+  #  ha1mp.hu – statikus landing oldal
+  # ===========================================================================
+
+  ha1mp_landing:
+    image: nginx:alpine
+    container_name: ha1mp_landing
+    restart: unless-stopped
+    volumes:
+      - ./note_app_v2/nginx:/usr/share/nginx/html:ro
+    expose:
+      - "80"
+    networks:
+      - edge
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=edge"
+      - "traefik.http.routers.landing.rule=Host(`ha1mp.hu`) || Host(`www.ha1mp.hu`)"
+      - "traefik.http.routers.landing.entrypoints=websecure"
+      - "traefik.http.routers.landing.tls.certresolver=le"
+      - "traefik.http.services.landing.loadbalancer.server.port=80"
+
+volumes:
+  letsencrypt:
+  db_data:
+  redis_data:
+
+networks:
+  # Explicit "name", hogy a docker ne tegye elé a projekt nevét – így a
+  # traefik --providers.docker.network=edge biztosan talál.
+  edge:
+    name: edge
+
+  # A hg25ccs backendje semmilyen külső hívást nem indít, ezért teljesen
+  # elzárt hálózatra kerülhet.
+  ccs_internal:
+    name: ccs_internal
+    internal: true
+
+  # A note backend <-> frontend. NEM internal, mert a backendnek kell
+  # kimenő net (Google OAuth stb.). Bejövő forgalmat nem kap: nincs port.
+  notes_app:
+    name: notes_app
+
+  # A postgres és a redis nem hív ki sehova -> teljesen elzárt.
+  notes_data:
+    name: notes_data
+    internal: true
