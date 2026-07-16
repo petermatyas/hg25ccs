@@ -6,6 +6,10 @@ import textwrap
 
 baseDir = os.path.dirname(os.path.realpath(__file__))
 
+RED = (142, 25, 25)
+SILVER = (192, 192, 192)
+
+
 def write(x,y, text):
     pass
 
@@ -16,35 +20,33 @@ def addCell(pdf,x,y,w,h,text):
     return x+w, y+h
 
 def generate_fpdf(path, data):
-    #backgroundImg = os.path.join(baseDir, "raw_diploma", "empty_diploma.png") 
-    #print("backgroundImg", backgroundImg)
-
     W, H = 140, 90
 
 
     pdf = FPDF('L', 'mm', (H, W))
     pdf.set_margin(0)
     pdf.add_page(orientation = 'L')
-    #pdf.image(backgroundImg, x=0, y=0, w=W, h=H)
-    
+
+
     fontPath = os.path.join(baseDir, "raw_diploma", "font", "Cinzel", "static", "Cinzel-SemiBold.ttf")
     #fontPath = os.path.join(baseDir, "raw_diploma", "font", "Cinzel", "static", "Cinzel-Regular.ttf")
-    pdf.add_font("myfont", "", fontPath, True)
+    pdf.add_font("myfont", "", fontPath)
     pdf.set_font('myfont', size=10)
     pdf.set_text_color(142, 25, 25)
     #strWidth = pdf.get_string_width(callsign)
     #print("strWidth", strWidth)
 
 
-    #pdf.set_xy(0,0)
-    #pdf.set_fill_color(142, 25, 25)
-    #pdf.set_text_color(255, 215, 0)
-    #pdf.set_font('myfont', size=30)
-    #pdf.cell(w=W, h=20, txt='HG25CCS', border=0, ln=0, align='C', fill=True)
-    imagePath = os.path.join(baseDir, "raw_diploma", "qsl_header_002.png")
-    pdf.image(name=imagePath, x=0, y=0, w=W, h=0)
+    pdf.set_text_color(SILVER)
+    pdf.set_font('myfont', size=30)
+    pdf.set_xy(0,0)
+    pdf.set_fill_color(RED)
+    pdf.cell(w=0, h=20, txt="HG25CCS", border=0, ln=0, align="c", fill=True)
 
-    pdf.set_text_color(142, 25, 25)
+    imagePath = os.path.join(baseDir, "raw_diploma", "savaria_karneval_logo_2.png")
+    pdf.image(name=imagePath, x=110, y=2, w=15, h=15)
+
+    pdf.set_text_color(RED)
     pdf.set_font('myfont', size=10)
 
     pdf.set_xy(15,30)
@@ -64,9 +66,6 @@ def generate_fpdf(path, data):
     pdf.cell(w=0, h=0, txt=f"Operator: {data["local_operator"]}", border=0, ln=0, align="l")
     pdf.set_xy(65,58)
     pdf.cell(w=0, h=0, txt=f"TNX 73!", border=0, ln=0, align="l")
-
-
-
 
 
     cellHeight = 5
@@ -95,21 +94,14 @@ def generate_fpdf(path, data):
     pdf.set_xy(5, 67)
     pdf.set_font('myfont', size=7)
     pdf.set_char_spacing(9)
-    pdf.cell(w=W-10, h=0, text=f".... --. ..--- ....- -.-. -.-. ...", border=0, ln=0, align="c")
+    pdf.cell(w=W-10, h=0, text=f".... --. ..--- ..... -.-. -.-. ...", border=0, ln=0, align="c")
     pdf.set_char_spacing(0)
 
     pdf.set_xy(5,70)
     pdf.set_font('myfont', size=6)
     wrapper = textwrap.TextWrapper(width=90)
     raw_text = "The Savaria Historical Carnival is organized every year in August by the city of Szombathely. During this period, the town centre takes visitors on a journey to the past. Throughout the event, countless colorful programs are offered to visitors. Stalls offering handmade products, concerts, gastronomic experiences, and child-friendly programs welcome the guests. The highlight of the Carnival is the costume parade (in the evening), which brings to life the 2,000-year-old history of Szombathely (Savaria).\nFurther information on the official website of the Carnival: www.karnevalsavaria.hu"
-    #wrapped_text = wrapper.fill(text=raw_text)
     pdf.multi_cell(w=W-10, h=2.5, txt=raw_text, border=0, align="j")
-
-    #pdf.set_xy(5,60)
-    #pdf.write(h=3, text=wrapped_text)
-
-    #pdf.set_xy(5,60)
-    #pdf.write_html(f'<font size="7"><p>{raw_text}</p></font>')
 
 
     pdf.line(0,0,0,H)
@@ -121,8 +113,8 @@ def generate_fpdf(path, data):
     pdf.output(path)
 
 if __name__ == "__main__":
-    data = {'band': '2m', 'mode': 'SSB', 'timestamp': 1751705760, 'qth': 'jn87if', 'rst_sent': '-10', 'rst_received': '-20', 'local_operator': 'HA1NB', 'upload_timestamp_utc': 1753472357, 'uploaded_filename': 'ha1nb_URHOB_MIX_144_MHz.edi', 'callsign': 'ha/ha1mp'}
-    generate_fpdf("./test_qsl.pdf", data)
+    data = {'band': '2m', 'mode': 'SSB', 'timestamp': 1784065936, 'qth': 'jn87if', 'rst_sent': '59', 'rst_received': '59', 'local_operator': 'HA1NBS', 'upload_timestamp_utc': 1753472357, 'uploaded_filename': 'ha1nb_URHOB_MIX_144_MHz.edi', 'callsign': 'ha1mp'}
+    generate_fpdf("./tmp/test_qsl.pdf", data)
 
 
 
