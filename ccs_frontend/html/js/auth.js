@@ -133,8 +133,14 @@ document.addEventListener("DOMContentLoaded", function () {
                     ccsShowAdmin();
                     ccsRunAuthenticated();
                 })
-                .catch(function () {
-                    if (errEl) errEl.innerText = "Hibás felhasználónév vagy jelszó.";
+                .catch(function (err) {
+                    // A fetch hálózati hiba esetén is ide jut (pl. a szerver
+                    // nem elérhető). Ilyenkor félrevezető jelszóhibát írni.
+                    if (errEl) {
+                        errEl.innerText = (err && err.message === "login_failed")
+                            ? "Hibás felhasználónév vagy jelszó."
+                            : "A szerver nem érhető el. Nézd meg a böngésző konzolját.";
+                    }
                 });
         });
     }

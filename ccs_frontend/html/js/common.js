@@ -1,10 +1,14 @@
-const PROTO="https://"
-const HOST="hg25ccs.hu"
-const BACKENDPORT=""
+// Az API ugyanazon az origin-en van, mint az oldal: az nginx a /api kéréseket
+// a backendre proxyzza. Ezért a címet az oldal saját URL-jéből vesszük, nem
+// írjuk be fixen - így domainváltáskor sincs teendő.
+const PROTO = window.location.protocol + "//"
+const HOST = window.location.host
+const BACKENDPORT = ""
 
 
-/*const HOST="localhost"
+/* Lokális fejlesztés külön futó backendhez (nem az nginxen keresztül):
 const PROTO="http://"
+const HOST="localhost"
 const BACKENDPORT=":8800"
 */
 
@@ -17,40 +21,45 @@ showLanguage("hu");
 
 
 window.addEventListener('load', function () {
-    let langCookie = document.cookie; 
+    // A nyelvválasztó csak a header.html-t használó oldalakon létezik; az
+    // admin.html-en (admin_header.html) nincs. Ezért mindenhol null-ra
+    // ellenőrizzük: enélkül itt kivétel szállna el, és a handler további
+    // része le sem futna.
+    const langSelectorEl = document.getElementById("langSelectOption");
+
+    let langCookie = document.cookie;
     console.log("cookie", langCookie)
     if (langCookie == "lang=en") {
         hideLanguage("hu");
-        showLanguage("en"); 
-        console.log(document.getElementById("langSelectOption").value)
-        document.getElementById("langSelectOption").value = "en";
+        showLanguage("en");
+        if (langSelectorEl) langSelectorEl.value = "en";
     } else if (langCookie == "lang=hu") {
         hideLanguage("en");
         showLanguage("hu");
-        document.getElementById("langSelectOption").value = "hu";
+        if (langSelectorEl) langSelectorEl.value = "hu";
     } else {
         hideLanguage("en");
         showLanguage("hu");
-        document.getElementById("langSelectOption").value = "hu";
+        if (langSelectorEl) langSelectorEl.value = "hu";
     }
 
 
-    document.getElementById("langSelectOption").addEventListener("click", function (evt){
-        langSelectorEl = document.getElementById("langSelectOption")
-        //console.log("----------" + langSelectorEl.value);
-        if (langSelectorEl.value == "hu") {
-            hideLanguage("en");
-            showLanguage("hu");
-            document.cookie = "lang=hu"; 
-        } else if (langSelectorEl.value == "en") {
-            hideLanguage("hu");
-            showLanguage("en");
-            document.cookie = "lang=en"; 
-        } else {
-            hideLanguage("en");
-            showLanguage("hu");
-        }
-    })
+    if (langSelectorEl) {
+        langSelectorEl.addEventListener("click", function (evt){
+            if (langSelectorEl.value == "hu") {
+                hideLanguage("en");
+                showLanguage("hu");
+                document.cookie = "lang=hu";
+            } else if (langSelectorEl.value == "en") {
+                hideLanguage("hu");
+                showLanguage("en");
+                document.cookie = "lang=en";
+            } else {
+                hideLanguage("en");
+                showLanguage("hu");
+            }
+        })
+    }
 
 
 })
