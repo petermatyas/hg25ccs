@@ -10,7 +10,7 @@ from fpdf import FPDF
 baseDir = os.path.dirname(os.path.realpath(__file__))
 
 
-def generate(callsign, path, lang="en"):
+def generate(callsign, out_path, lang="en"):
     #print(baseDir)
 
     backgroundImg = os.path.join(baseDir, "raw_diploma", "diploma_002.png") 
@@ -30,12 +30,11 @@ def generate(callsign, path, lang="en"):
     I1.text((W//2, 350), callsign.upper(), anchor="mm", font=myFont, fill=fontColor)
 
     
-    
-    """fileDir = os.path.join(baseDir, "diplomas") 
+    fileDir = os.path.dirname(out_path)
     if not os.path.exists(fileDir):
-        os.makedirs(fileDir)"""
+        os.makedirs(fileDir)
     
-    background.save(path)
+    background.save(out_path)
     
     #background.save(os.path.join(fileDir, f"diploma_{callsign.lower()}_{lang}.pdf"))
     #background.save(os.path.join(fileDir, f"diploma_{callsign}.png"))
@@ -43,7 +42,7 @@ def generate(callsign, path, lang="en"):
     
     return ""
 
-def generate_fpdf(callsign, path, lang="en"):
+def generate_fpdf(callsign, out_path, lang="en"):
 
     backgroundImg = os.path.join(baseDir, "raw_diploma", "diploma_007.png") 
     #print("backgroundImg", backgroundImg)
@@ -69,7 +68,7 @@ def generate_fpdf(callsign, path, lang="en"):
     pdf.cell(0, 0, callsign.upper())
 
     pdf.set_title("HG25CCS")
-    pdf.output(path)
+    pdf.output(out_path)
 
 if __name__ == "__main__":
     import time

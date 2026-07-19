@@ -19,7 +19,7 @@ def addCell(pdf,x,y,w,h,text):
     pdf.cell(w=w, h=h, txt=text, border=1, ln=0, align="c")
     return x+w, y+h
 
-def generate_fpdf(path, data):
+def generate_fpdf(out_path, data):
     W, H = 140, 90
 
 
@@ -109,8 +109,13 @@ def generate_fpdf(path, data):
     pdf.line(W,0,W,H)
     pdf.line(0,H,W,H)
 
-    pdf.set_title("HG24CCS")
-    pdf.output(path)
+    pdf.set_title("HG25CCS")
+
+
+    fileDir = os.path.dirname(out_path)
+    if not os.path.exists(fileDir):
+        os.makedirs(fileDir)
+    pdf.output(out_path)
 
 if __name__ == "__main__":
     data = {'band': '2m', 'mode': 'SSB', 'timestamp': 1784065936, 'qth': 'jn87if', 'rst_sent': '59', 'rst_received': '59', 'local_operator': 'HA1NBS', 'upload_timestamp_utc': 1753472357, 'uploaded_filename': 'ha1nb_URHOB_MIX_144_MHz.edi', 'callsign': 'ha1mp'}
