@@ -59,7 +59,7 @@ def generate_fpdf(callsign, path, lang="en"):
     pdf.image(backgroundImg, x=0, y=0, w=W, h=H)
     
     fontPath = os.path.join(baseDir, "raw_diploma", "font", "Cinzel", "static", "Cinzel-SemiBold.ttf")
-    pdf.add_font("myfont", "", fontPath, True)
+    pdf.add_font("myfont", "", fontPath)
     pdf.set_font('myfont', size=90)
     pdf.set_text_color(142, 25, 25)
     strWidth = pdf.get_string_width(callsign)
@@ -80,5 +80,5 @@ if __name__ == "__main__":
 
 
     startTime = time.time()
-    generate_fpdf("Leon", "./test_fpdf2.pdf", "en")
+    generate_fpdf("ha1mp", "./tmp/test_diploma.pdf", "en")
     print("time: ", time.time() - startTime)
