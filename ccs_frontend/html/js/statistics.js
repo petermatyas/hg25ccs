@@ -82,6 +82,7 @@ function fillStats() {
         document.getElementById("2_valid_qso").innerHTML = data["2validQso"].length;
         document.getElementById("nr_of_valid_diploma").innerHTML = data["validDiploma"].length;
         document.getElementById("downloaded_diploma_nr").innerHTML = data["downlodedDiplomaNr"];
+        document.getElementById("nr_of_countries").innerHTML = data["nr_of_countries"];
 
 
         //document.getElementById("1qso").innerText = data["1validQso"].join(" ")

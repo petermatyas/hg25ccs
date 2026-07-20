@@ -414,6 +414,7 @@ def statistics():
 
     countriesSorted = sorted(countryCounts.items(), key=lambda kv: kv[1], reverse=True)
     countryStat = [{"country": k, "count": v} for k, v in countriesSorted]
+    nrOfCountries = len([x for x in countryStat if x["country"] != "Ismeretlen"])
 
     stat = {
         "nr_of_qso": nrOfQsos,
@@ -423,6 +424,7 @@ def statistics():
             "2validQso": valid_qso_2,
             "validDiploma": valid_qso_3_or_more,
             "downlodedDiplomaNr": downloadedDiplomas_nr,
+            "nr_of_countries": nrOfCountries,
             "countries": countryStat
             }
 
