@@ -37,6 +37,37 @@
     <div id="adminContent" style="display:none;">
     <div class="container">
 
+        <div class="row my-3">
+            <h4>Hívójel lekérdezés</h4>
+            <div class="col">
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control" id="callsignId" placeholder="hívójel">
+                    <button type="button" class="btn btn-primary" id="callsignQueryBtnId">Lekérdez</button>
+                </div>
+                <div id="diplomaStatusId" class="my-3 fs-5"></div>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th scope="col">Idő</th>
+                            <th scope="col">Sáv</th>
+                            <th scope="col">Mód</th>
+                            <th scope="col">Qth</th>
+                            <th scope="col">Küldött RST</th>
+                            <th scope="col">Kapott RST</th>
+                            <th scope="col">Hívójel</th>
+                            <th scope="col">Feltöltés ideje</th>
+                            <th scope="col">Fájlnév</th>
+                            <th scope="col">QSL letöltve</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBodyId">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <hr>
+
         <div class="row">
             <h4>Statisztika</h4>
             <div class="col">
