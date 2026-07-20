@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 import pytz
 import os
+import json
 import threading
 from zipfile import ZipFile
 
@@ -495,6 +496,33 @@ async def upload_file(folder:str, file: UploadFile):
 
     return {"path": fileLocation}
 
+
+@app.post("/api/v1/upload_db", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+async def upload_db(file: UploadFile):
+    content = await file.read()
+    handle_db.replaceDatabase(content)
+    return {"status": "ok", "note": "Az adatbázis cserélve. A biztos működéshez ajánlott a backend újraindítása."}
+
+
+@app.get("/api/v1/export_logs", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+def export_logs():
+    return {"logs": handle_db.exportLogs()}
+
+
+@app.post("/api/v1/import_logs", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+async def import_logs(file: UploadFile):
+    content = await file.read()
+    data = json.loads(content)
+    if isinstance(data, dict) and "logs" in data:
+        data = data["logs"]
+    added = handle_db.importLogs(data)
+    return {"added": added, "total_in_file": len(data)}
+
+
+@app.delete("/api/v1/clear_db", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+def clear_db():
+    deleted = handle_db.clearAllLogs()
+    return {"deleted": deleted}
 
 
 if __name__ == "__main__":

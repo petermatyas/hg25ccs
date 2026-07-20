@@ -133,6 +133,64 @@ def addLogs(logList:list):
 def readLogs():
     return session.query(Log).all()
 
+def exportLogs():
+    q = session.query(Log).all()
+    return [{
+        "callsign": i.callsign,
+        "band": i.band,
+        "mode": i.mode,
+        "qth": i.qth,
+        "log_timestamp_utc": i.log_timestamp_utc,
+        "upload_timestamp_utc": i.upload_timestamp_utc,
+        "uploaded_filename": i.uploaded_filename,
+        "rst_sent": i.rst_sent,
+        "rst_rec": i.rst_rec,
+        "local_operator": i.local_operator,
+        "error": i.error,
+    } for i in q]
+
+def importLogs(logList):
+    added = 0
+    for log in logList:
+        exists = session.query(Log).where(
+            Log.callsign == log.get("callsign"),
+            Log.band == log.get("band"),
+            Log.mode == log.get("mode"),
+            Log.qth == log.get("qth"),
+            Log.rst_sent == log.get("rst_sent"),
+            Log.rst_rec == log.get("rst_rec"),
+            Log.log_timestamp_utc == log.get("log_timestamp_utc"),
+            Log.local_operator == log.get("local_operator"),
+        ).first()
+        if exists is None:
+            session.add(Log(
+                callsign=log.get("callsign"),
+                band=log.get("band"),
+                mode=log.get("mode"),
+                qth=log.get("qth"),
+                log_timestamp_utc=log.get("log_timestamp_utc"),
+                upload_timestamp_utc=log.get("upload_timestamp_utc"),
+                uploaded_filename=log.get("uploaded_filename"),
+                rst_sent=log.get("rst_sent"),
+                rst_rec=log.get("rst_rec"),
+                local_operator=log.get("local_operator"),
+                error=log.get("error"),
+            ))
+            added += 1
+    session.commit()
+    return added
+
+def clearAllLogs():
+    n = session.query(Log).delete()
+    session.commit()
+    return n
+
+def replaceDatabase(fileBytes):
+    session.close()
+    engine.dispose()
+    with open(databasePath, "wb") as fileObj:
+        fileObj.write(fileBytes)
+
 def removeLogs(uploadTimestamp, filename):
     session.query(Log).where(Log.upload_timestamp_utc==uploadTimestamp and Log.uploaded_filename==filename).delete()
     session.commit() 

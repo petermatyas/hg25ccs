@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>HG25CCS</title>
+    <link rel="icon" type="image/x-icon" href="/favicon/favicon.ico">
+
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO" crossorigin="anonymous"></script>
+    <script src="js/jquery-3.7.1.js"></script>
+
+
+  </head>
+  <body>
+    <div id="header"></div>
+
+    <!-- Bejelentkezés -->
+    <div id="loginGate" class="container my-5" style="display:none; max-width:420px;">
+        <h3>Admin bejelentkezés</h3>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label class="form-label" for="loginUsername">Felhasználónév</label>
+                <input type="text" class="form-control" id="loginUsername" autocomplete="username" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="loginPassword">Jelszó</label>
+                <input type="password" class="form-control" id="loginPassword" autocomplete="current-password" required>
+            </div>
+            <p id="loginError" style="color:#FF0000;"></p>
+            <button type="submit" class="btn btn-primary">Belépés</button>
+        </form>
+    </div>
+
+    <!-- Csak bejelentkezés után látható tartalom -->
+    <div id="adminContent" style="display:none;">
+    <div class="container">
+
+        <h3 class="my-3">Adatbázis</h3>
+        <div id="dbActionMsg" class="my-2"></div>
+
+        <!-- Teljes adatbázis: letöltés / feltöltés -->
+        <div class="row my-3 p-3 border rounded">
+            <h5>Teljes adatbázis (SQLite)</h5>
+            <div class="col-md-6 mb-2">
+                <p class="text-muted small mb-2">A teljes adatbázis letöltése biztonsági mentésként.</p>
+                <button type="button" class="btn btn-outline-primary" id="dbDownloadBtn">Adatbázis letöltése</button>
+            </div>
+            <div class="col-md-6 mb-2">
+                <p class="text-muted small mb-2">Az adatbázis felülírása egy korábbi mentésből (.sqlite3).</p>
+                <input type="file" class="form-control mb-2" id="dbUploadFile" accept=".sqlite3">
+                <button type="button" class="btn btn-outline-danger" id="dbUploadBtn">Adatbázis feltöltése</button>
+            </div>
+        </div>
+
+        <!-- Export / Import (JSON) -->
+        <div class="row my-3 p-3 border rounded">
+            <h5>Export / Import (JSON)</h5>
+            <div class="col-md-6 mb-2">
+                <p class="text-muted small mb-2">A bejegyzések exportálása JSON formátumban.</p>
+                <button type="button" class="btn btn-outline-primary" id="dbExportBtn">Exportálás (JSON)</button>
+            </div>
+            <div class="col-md-6 mb-2">
+                <p class="text-muted small mb-2">Bejegyzések importálása JSON fájlból (a meglévők megmaradnak, az újak hozzáadódnak).</p>
+                <input type="file" class="form-control mb-2" id="dbImportFile" accept=".json,application/json">
+                <button type="button" class="btn btn-outline-warning" id="dbImportBtn">Importálás (JSON)</button>
+            </div>
+        </div>
+
+        <!-- Veszélyzóna: tartalom törlése -->
+        <div class="row my-3 p-3 border border-danger rounded">
+            <h5 class="text-danger">Veszélyzóna</h5>
+            <div class="col">
+                <p class="text-muted small mb-2">Az adatbázis teljes log-tartalmának törlése. Ez a művelet nem vonható vissza!</p>
+                <button type="button" class="btn btn-danger" id="dbClearBtn">Adatbázis tartalmának törlése</button>
+            </div>
+        </div>
+
+    </div>
+    </div><!-- /adminContent -->
+
+
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/popper.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+	<script src="js/jquery-3.7.1.js"></script>
+
+
+    <script src="js/common.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/db_admin.js"></script>
+
+
+  </body>
+</html>
