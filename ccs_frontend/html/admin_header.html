@@ -6,7 +6,7 @@
   <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
   </button>
-  
+
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
     <ul class="navbar-nav me-auto">
       <li class="nav-item fs-6">
@@ -23,6 +23,14 @@
       </li>-->
     </ul>
 
+    <!-- Csak bejelentkezve látszik (body.ccs-auth kapcsolja, ld. lenti style). -->
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="logoutBtn">Kijelentkezés</button>
 
   </div>
 </nav>
+
+<style>
+  /* A kijelentkezés gomb alapból rejtve; csak bejelentkezett állapotban látszik. */
+  #logoutBtn { display: none; }
+  body.ccs-auth #logoutBtn { display: inline-block; }
+</style>

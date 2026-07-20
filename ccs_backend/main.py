@@ -160,7 +160,14 @@ def logs(ts, filename):
 @app.get("/api/v1/logs_by_callsign", tags=["log"])
 def logsByCallsign(callsign):
     
-    return handle_db.query(callsign)
+    qsos = handle_db.query(callsign)
+    downloadedQslTs = handle_db.getDownloadedQslTimestamps(callsign)
+    for qso in qsos:
+        qso["qsl_downloaded"] = int(qso["timestamp"]) in downloadedQslTs
+    return {
+        "diploma_downloaded": handle_db.isDiplomaDownloaded(callsign),
+        "qsos": qsos,
+    }
 
 
 @app.delete("/api/v1/logs", tags=["log"], dependencies=[Depends(auth.require_auth)])
@@ -291,8 +298,8 @@ def download_diploma(callsign, lang="en"):
     if "/" in callsign:
         callsign = callsign.replace("/", "_")
     diplomaPath = os.path.join(baseDir, "diplomas", f"diploma_{callsign.lower()}_{lang}.pdf")
-    #handle_db.diplomaQslDownload(callsign, "downloadDiploma")
     if os.path.exists(diplomaPath):
+        handle_db.diplomaDownload(callsign)
         return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG24CCS.pdf")
     else:
         return {"error":"not exists"}
@@ -341,6 +348,7 @@ def downloaded_qsl(callsign, timestamp, fileNr):
         callsign = callsign.replace("/", "_")
     qslPath = os.path.join(baseDir, "qsls", f'qsl_{callsign}_{timestamp}.pdf')
     if os.path.exists(qslPath):
+        handle_db.qslDownload(callsign, timestamp)
         return FileResponse(qslPath, media_type='application/octet-stream',filename=f"{fileNr}.pdf")
     else:
         return {"error":"not exists"}

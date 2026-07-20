@@ -61,6 +61,7 @@ function ccsShowLogin(message) {
     const gate = document.getElementById("loginGate");
     if (content) content.style.display = "none";
     if (gate) gate.style.display = "block";
+    document.body.classList.remove("ccs-auth");
     const err = document.getElementById("loginError");
     if (err) err.innerText = message || "";
 }
@@ -77,6 +78,7 @@ function ccsShowAdmin() {
     const gate = document.getElementById("loginGate");
     if (gate) gate.style.display = "none";
     if (content) content.style.display = "block";
+    document.body.classList.add("ccs-auth");
 }
 
 function ccsLogout() {
@@ -145,10 +147,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-        logoutBtn.addEventListener("click", ccsLogout);
-    }
+    // A kijelentkezes gomb a kesobb, aszinkron betoltodo navbarban van,
+    // ezert esemeny-delegalassal kotjuk ra (a document mindig letezik).
+    document.addEventListener("click", function (evt) {
+        const t = evt.target.closest ? evt.target.closest("#logoutBtn") : null;
+        if (t) ccsLogout();
+    });
 
     ccsInitGate();
 });

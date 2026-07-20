@@ -49,6 +49,14 @@ class DiplomaDownload(Base):
     timestamp_utc = Column(Integer)
 
 
+class QslDownload(Base):
+    __tablename__ = 'qslDownload'
+    id = Column(Integer, primary_key=True)
+    callsign = Column(String)
+    qso_timestamp_utc = Column(Integer)
+    timestamp_utc = Column(Integer)
+
+
 
 if not os.path.exists(databaseDir):
     os.makedirs(databaseDir)
@@ -225,7 +233,7 @@ def qsoListBandModeByCallsign(callsign):
     return res"""
 
 def diplomaDownload(callsign):
-    aaa = DiplomaDownload(callsign=callsign,
+    aaa = DiplomaDownload(callsign=_canonCallsign(callsign),
                           timestamp_utc=getCurrentUtcTs())
     session.add(aaa)
     session.commit()    
@@ -234,6 +242,25 @@ def getDownloadedDiplomas():
     q = session.query(DiplomaDownload).all()
     res = [[i.timestamp_utc, i.callsign] for i in q]
     return res
+
+def _canonCallsign(callsign):
+    return callsign.upper().replace("/", "_")
+
+def isDiplomaDownloaded(callsign):
+    c = _canonCallsign(callsign)
+    return session.query(DiplomaDownload).where(DiplomaDownload.callsign == c).first() is not None
+
+def qslDownload(callsign, qso_timestamp):
+    row = QslDownload(callsign=_canonCallsign(callsign),
+                      qso_timestamp_utc=int(qso_timestamp),
+                      timestamp_utc=getCurrentUtcTs())
+    session.add(row)
+    session.commit()
+
+def getDownloadedQslTimestamps(callsign):
+    c = _canonCallsign(callsign)
+    q = session.query(QslDownload.qso_timestamp_utc).where(QslDownload.callsign == c).all()
+    return set(int(i[0]) for i in q)
 
 def activateBand(callsign, band, mode):
     aaa = ActiveBand(callsign = callsign,
