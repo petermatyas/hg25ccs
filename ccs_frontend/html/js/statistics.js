@@ -51,26 +51,27 @@ function fillStats() {
             html += `<td>${d["15m"]}</td>`
             html += `<td>${d["17m"]}</td>`
             html += `<td>${d["20m"]}</td>`
-            html += `<td>${d["30m"]}</td>`  
+            html += `<td>${d["30m"]}</td>`
             html += `<td>${d["40m"]}</td>`
             html += `<td>${d["60m"]}</td>`
             html += `<td>${d["80m"]}</td>`
             html += `<td>${d["160m"]}</td>`
             html += `<td>${d["other"]}</td>`
             html += `<td>${d["error"]}</td>`
-            
+
             html += `</tr>`
             tableBody.append(html)
 
         }
 
-        /*for (let i=0; i<data["modeBand"].length; i++) {
-            //console.log(data["bands"][i][0])
-            
-            let html = `<tr><td>${data["bands"][i][0]}</td><td>${data["bands"][i][1]}</td>`;
-            tableBody.append(html)
-        }*/
+        // Ország statisztika (a backend rekordszám szerint csökkenő sorrendben adja)
+        removeTable("#countryStatTableId");
+        let countryBody = $("#countryStatTableId tbody")
+        let countries = data.countries || []
+        for (let i=0; i<countries.length; i++) {
+            let row = `<tr><td>${i+1}</td><td>${countries[i].country}</td><td>${countries[i].count}</td></tr>`
+            countryBody.append(row)
+        }
 
-        
     })
 }

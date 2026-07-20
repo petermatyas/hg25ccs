@@ -22,6 +22,7 @@ import handle_log
 import handle_db
 import diploma
 import qsl
+import country
 import auth
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
@@ -377,11 +378,15 @@ def statistics():
             modeBandTable[mode][band] = 0
 
     nrOfQsos = 0
+    countryCounts = {}
     participants = handle_db.getAllParticipant()
 
     for callsign in participants:
         logs = handle_db.query(callsign)
         nrOfQsos += len(logs)
+
+        c = country.getCountry(callsign) or "Ismeretlen"
+        countryCounts[c] = countryCounts.get(c, 0) + len(logs)
 
         aa = [(i["band"], i["mode"]) for i in logs]
         for a in aa:
@@ -407,6 +412,9 @@ def statistics():
             valid_qso_3_or_more.append(callsign)
 
 
+    countriesSorted = sorted(countryCounts.items(), key=lambda kv: kv[1], reverse=True)
+    countryStat = [{"country": k, "count": v} for k, v in countriesSorted]
+
     stat = {
         "nr_of_qso": nrOfQsos,
             "participanst_nr": len(participants),
@@ -414,7 +422,8 @@ def statistics():
             "1validQso": valid_qso_1,
             "2validQso": valid_qso_2,
             "validDiploma": valid_qso_3_or_more,
-            "downlodedDiplomaNr": downloadedDiplomas_nr
+            "downlodedDiplomaNr": downloadedDiplomas_nr,
+            "countries": countryStat
             }
 
     return stat
