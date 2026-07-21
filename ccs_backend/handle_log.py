@@ -192,12 +192,14 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
     except:
         operator_rcall = "error"
 
-
-    band = re.findall("PBand=(.+)", content)[0]
-    if band in bandDict:
-        band = bandDict[band]
-    else:
-        band = "error_"+str(band)
+    try:
+        band = re.findall("PBand=(.+)", content)[0]
+        if band in bandDict:
+            band = bandDict[band]
+        else:
+            band = f"nem ismert sáv: {band}"
+    except:
+        band = "error"
 
     logs = re.findall(".+;.+;.+;.+", content)
     
