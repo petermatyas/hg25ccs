@@ -16,6 +16,7 @@ import os
 import json
 import threading
 from zipfile import ZipFile
+import re
 
 from dotenv import load_dotenv
 
@@ -45,6 +46,8 @@ baseDir = os.path.dirname(os.path.realpath(__file__))
 bands     = ["70cm", "2m", "4m", "6m", "10m", "12m", "15m", "17m", "20m", "30m", "40m", "60m", "80m", "160m"]
 modes     = ["CW", "SSB", "FM", "DIGI"]
 operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA"]
+
+extraDiplomaList = []
 
 modes.sort()
 operators.sort()
@@ -103,7 +106,7 @@ def preGenerateDiplomas(callsignList):
 
 
 @app.post("/api/v1/logs", tags=["log"], dependencies=[Depends(auth.require_auth)])
-async def upload_log_file(file: UploadFile):
+async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None] = None):
 
     ts = int(time.time())
     
@@ -116,6 +119,10 @@ async def upload_log_file(file: UploadFile):
     #fileType = file.filename
     #print("fileType: ", fileType)
 
+    callsign_pattern = r"[hH][aA]1[a-zA-Z]+"
+    matches = re.findall(callsign_pattern, name)
+    callsign = matches[0] if matches else None
+
     newFile = await file.read()
     with open(fileLocation, "wb+") as file_object:
         #file_object.write(file.file.read())
@@ -123,7 +130,7 @@ async def upload_log_file(file: UploadFile):
 
     uploadTs = int(time.time())
     
-    logLines = handle_log.process(fileLocation, name+"."+extension, uploadTs)
+    logLines = handle_log.process(fileLocation, name+"."+extension, uploadTs, fileNameCallsign=callsign, uploadedUserCallsign=uploadUserCallsign)
     """#print("----------------------------", extension.lower())
     if extension.lower() in ["edi"]:
         logLines = handle_log.process_edi(fileLocation, name+"."+extension, uploadTs)
@@ -143,8 +150,6 @@ async def upload_log_file(file: UploadFile):
     #print(logLines)
     handle_db.addLogs(logLines)
     handle_db.readLogs()
-
-
 
 
     return {"info": f"file '{file.filename}' saved at '{fileLocation}'"}
@@ -285,9 +290,9 @@ def generate_diploma(callsign, lang="en"):
     qsos_unique = list(set([(i["band"], i["mode"]) for i in qsos]))
     valid_qsos_nr = len(qsos_unique)
 
-    print("érvényes qso-k:", qsos_unique, valid_qsos_nr < 3)
+    print("érvényes qso-k:", qsos_unique, "  valid:", valid_qsos_nr >= 3)
 
-    if valid_qsos_nr >= 3 or callsign.lower() in ["Leon", "Ármin"]:
+    if valid_qsos_nr >= 3 or callsign.lower() in extraDiplomaList:
         #diplomaPath = f"./diplomas/diploma_{callsign.lower()}.pdf"
         lang = "en"
         callsign = callsign.replace("/", "_")

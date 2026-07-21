@@ -61,7 +61,7 @@ def clearCallsign(callsign):
 
 
 
-def process_callibro(filePath, uploadedFileName, uploadTimestamp):
+def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     """
     https://wwrof.org/cabrillo/cabrillo-v3-header/
     """
@@ -146,6 +146,10 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp):
             operator = operator_name
         elif operator_callsign != "error":
             operator = operator_callsign
+        elif fileNameCallsign != None:
+            operator = fileNameCallsign
+        elif uploadedUserCallsign != None:
+            operator = uploadedUserCallsign
         else:
             operator = "error"
 
@@ -165,7 +169,7 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp):
 
     return res
 
-def process_edi(filePath, uploadedFileName, uploadTimestamp):
+def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     """
     https://www.ok2kkw.com/ediformat.htm
     """
@@ -241,6 +245,10 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp):
             operator = operator_pcall
         elif operator_rcall != "error":
             operator = operator_rcall
+        elif fileNameCallsign != None:
+            operator = fileNameCallsign
+        elif uploadedUserCallsign != None:
+            operator = uploadedUserCallsign
         else:
             operator = "error"
 
@@ -260,7 +268,7 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp):
 
     return res
 
-def process_adif(filePath, uploadedFileName, uploadTimestamp):
+def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     """
     https://www.adif.org/100/adif_100.htm
     """
@@ -361,6 +369,10 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp):
         #    local_operator = local_operator_station
         elif local_operator_operator != "error":
             local_operator = local_operator_operator
+        elif fileNameCallsign != None:
+            local_operator = fileNameCallsign
+        elif uploadedUserCallsign != None:
+            local_operator = uploadedUserCallsign
         else:
             local_operator = "error"
 
@@ -381,15 +393,15 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp):
     return res
 
 
-def process(filePath, uploadedFileName, uploadTimestamp):
+def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     extension = filePath.split(".")[-1]
 
     if extension.lower() in ["edi"]:
-        logLines = process_edi(filePath, uploadedFileName, uploadTimestamp)
+        logLines = process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
     elif extension.lower() in ["adi", "adif"]:
-        logLines = process_adif(filePath, uploadedFileName, uploadTimestamp)
+        logLines = process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
     elif extension.lower() in ["cbr", "log"]:
-        logLines = process_callibro(filePath, uploadedFileName, uploadTimestamp)
+        logLines = process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
     else:
         return "file extension error"
 
