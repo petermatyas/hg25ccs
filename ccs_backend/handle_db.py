@@ -49,6 +49,21 @@ class DiplomaDownload(Base):
     timestamp_utc = Column(Integer)
 
 
+class QslDownload(Base):
+    __tablename__ = 'qslDownload'
+    id = Column(Integer, primary_key=True)
+    callsign = Column(String)
+    qso_timestamp_utc = Column(Integer)
+    timestamp_utc = Column(Integer)
+
+
+class Setting(Base):
+    """Egyszerű kulcs-érték beállítástár (pl. az oldal aktiválási állapota)."""
+    __tablename__ = 'setting'
+    key = Column(String, primary_key=True)
+    value = Column(String)
+
+
 
 if not os.path.exists(databaseDir):
     os.makedirs(databaseDir)
@@ -124,6 +139,64 @@ def addLogs(logList:list):
 
 def readLogs():
     return session.query(Log).all()
+
+def exportLogs():
+    q = session.query(Log).all()
+    return [{
+        "callsign": i.callsign,
+        "band": i.band,
+        "mode": i.mode,
+        "qth": i.qth,
+        "log_timestamp_utc": i.log_timestamp_utc,
+        "upload_timestamp_utc": i.upload_timestamp_utc,
+        "uploaded_filename": i.uploaded_filename,
+        "rst_sent": i.rst_sent,
+        "rst_rec": i.rst_rec,
+        "local_operator": i.local_operator,
+        "error": i.error,
+    } for i in q]
+
+def importLogs(logList):
+    added = 0
+    for log in logList:
+        exists = session.query(Log).where(
+            Log.callsign == log.get("callsign"),
+            Log.band == log.get("band"),
+            Log.mode == log.get("mode"),
+            Log.qth == log.get("qth"),
+            Log.rst_sent == log.get("rst_sent"),
+            Log.rst_rec == log.get("rst_rec"),
+            Log.log_timestamp_utc == log.get("log_timestamp_utc"),
+            Log.local_operator == log.get("local_operator"),
+        ).first()
+        if exists is None:
+            session.add(Log(
+                callsign=log.get("callsign"),
+                band=log.get("band"),
+                mode=log.get("mode"),
+                qth=log.get("qth"),
+                log_timestamp_utc=log.get("log_timestamp_utc"),
+                upload_timestamp_utc=log.get("upload_timestamp_utc"),
+                uploaded_filename=log.get("uploaded_filename"),
+                rst_sent=log.get("rst_sent"),
+                rst_rec=log.get("rst_rec"),
+                local_operator=log.get("local_operator"),
+                error=log.get("error"),
+            ))
+            added += 1
+    session.commit()
+    return added
+
+def clearAllLogs():
+    n = session.query(Log).delete()
+    session.commit()
+    return n
+
+def replaceDatabase(fileBytes):
+    session.close()
+    engine.dispose()
+    with open(databasePath, "wb") as fileObj:
+        fileObj.write(fileBytes)
 
 def removeLogs(uploadTimestamp, filename):
     session.query(Log).where(Log.upload_timestamp_utc==uploadTimestamp and Log.uploaded_filename==filename).delete()
@@ -225,7 +298,7 @@ def qsoListBandModeByCallsign(callsign):
     return res"""
 
 def diplomaDownload(callsign):
-    aaa = DiplomaDownload(callsign=callsign,
+    aaa = DiplomaDownload(callsign=_canonCallsign(callsign),
                           timestamp_utc=getCurrentUtcTs())
     session.add(aaa)
     session.commit()    
@@ -234,6 +307,25 @@ def getDownloadedDiplomas():
     q = session.query(DiplomaDownload).all()
     res = [[i.timestamp_utc, i.callsign] for i in q]
     return res
+
+def _canonCallsign(callsign):
+    return callsign.upper().replace("/", "_")
+
+def isDiplomaDownloaded(callsign):
+    c = _canonCallsign(callsign)
+    return session.query(DiplomaDownload).where(DiplomaDownload.callsign == c).first() is not None
+
+def qslDownload(callsign, qso_timestamp):
+    row = QslDownload(callsign=_canonCallsign(callsign),
+                      qso_timestamp_utc=int(qso_timestamp),
+                      timestamp_utc=getCurrentUtcTs())
+    session.add(row)
+    session.commit()
+
+def getDownloadedQslTimestamps(callsign):
+    c = _canonCallsign(callsign)
+    q = session.query(QslDownload.qso_timestamp_utc).where(QslDownload.callsign == c).all()
+    return set(int(i[0]) for i in q)
 
 def activateBand(callsign, band, mode):
     aaa = ActiveBand(callsign = callsign,
@@ -276,11 +368,35 @@ def getActiveBands():
 
 def getActiveBandsHistory():
     aaa = session.query(ActiveBand).all()
-    return [{"callsign":i.callsign, 
-             "mode":i.mode, 
-             "band": i.band, 
+    return [{"callsign":i.callsign,
+             "mode":i.mode,
+             "band": i.band,
              "start_timestamp_utc":i.start_timestamp_utc,
              "end_timestamp_utc":i.end_timestamp_utc} for i in aaa]
+
+
+# ---- Beállítások (kulcs-érték) ----
+
+def getSetting(key, default=None):
+    row = session.query(Setting).where(Setting.key == key).first()
+    return row.value if row is not None else default
+
+def setSetting(key, value):
+    row = session.query(Setting).where(Setting.key == key).first()
+    if row is None:
+        session.add(Setting(key=key, value=str(value)))
+    else:
+        row.value = str(value)
+    session.commit()
+
+# Az oldal (index.html-en a keresés) aktiválási állapota. Alapból inaktív:
+# amíg az admin nem aktiválja, az index.html keresés nem működik.
+def getSiteActive():
+    return getSetting("site_active", "0") == "1"
+
+def setSiteActive(active):
+    setSetting("site_active", "1" if active else "0")
+    return getSiteActive()
 
 
 

@@ -2,6 +2,7 @@
 # source: https://www.arrl.org/international-call-sign-series
 import math
 import json
+import os
 
 
 "                      111111111122222222222333333"
@@ -384,15 +385,24 @@ def generatePrefixDb():
 
 
 
-def getCountry(callsign):
-    with open('prefixDb.json') as f:
-        d = json.load(f)
+_prefixDb = None
 
-    for i in d:
-        #print(i)
-        if callsign.lower().startswith(i):
-            return d[i]
-    return None
+def _loadPrefixDb():
+    global _prefixDb
+    if _prefixDb is None:
+        baseDir = os.path.dirname(os.path.realpath(__file__))
+        with open(os.path.join(baseDir, 'prefixDb.json'), encoding='utf-8') as f:
+            _prefixDb = json.load(f)
+    return _prefixDb
+
+def getCountry(callsign):
+    d = _loadPrefixDb()
+    cs = callsign.lower()
+    best = None
+    for prefix in d:
+        if cs.startswith(prefix) and (best is None or len(prefix) > len(best)):
+            best = prefix
+    return d[best] if best is not None else None
 
 
 
@@ -405,5 +415,6 @@ if __name__ == "__main__":
     #print(nrToStr(36))
     #print(nrToStr(37))
     #print(nrToStr(1296))
-    print(nrToStr(1297))
-    generatePrefixDb()
+    #print(nrToStr(1297))
+    #generatePrefixDb()
+    print(getCountry("srgs"))

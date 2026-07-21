@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 import pytz
 import os
+import json
 import threading
 from zipfile import ZipFile
 
@@ -22,6 +23,7 @@ import handle_log
 import handle_db
 import diploma
 import qsl
+import country
 import auth
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
@@ -47,8 +49,10 @@ operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA"]
 modes.sort()
 operators.sort()
 
-if not os.path.exists(os.path.join(baseDir, "qsls")):
-    os.makedirs(os.path.join(baseDir, "qsls"))
+# A futáshoz szükséges könyvtárak létrehozása, ha még nem léteznek.
+# (A log-feltöltés a "logs", a diploma-generálás a "diplomas" mappába ír.)
+for _subdir in ("qsls", "logs", "diplomas"):
+    os.makedirs(os.path.join(baseDir, _subdir), exist_ok=True)
 
 @app.get("/api/v1")
 def read_root():
@@ -72,6 +76,23 @@ def login(creds: LoginRequest):
 def me(username: str = Depends(auth.require_auth)):
     """A token érvényességének ellenőrzése; visszaadja a felhasználónevet."""
     return {"username": username}
+
+
+class SiteActiveRequest(BaseModel):
+    active: bool
+
+
+@app.get("/api/v1/site_active", tags=["site"])
+def get_site_active():
+    """Az oldal aktiválási állapota (publikus). Az index.html ez alapján
+    engedélyezi vagy tiltja a keresés gombokat."""
+    return {"active": handle_db.getSiteActive()}
+
+
+@app.post("/api/v1/site_active", tags=["site"], dependencies=[Depends(auth.require_auth)])
+def set_site_active(req: SiteActiveRequest):
+    """Az oldal aktiválása/deaktiválása (csak admin). A db_admin oldalról hívjuk."""
+    return {"active": handle_db.setSiteActive(req.active)}
 
 
 def preGenerateDiplomas(callsignList):
@@ -160,7 +181,14 @@ def logs(ts, filename):
 @app.get("/api/v1/logs_by_callsign", tags=["log"])
 def logsByCallsign(callsign):
     
-    return handle_db.query(callsign)
+    qsos = handle_db.query(callsign)
+    downloadedQslTs = handle_db.getDownloadedQslTimestamps(callsign)
+    for qso in qsos:
+        qso["qsl_downloaded"] = int(qso["timestamp"]) in downloadedQslTs
+    return {
+        "diploma_downloaded": handle_db.isDiplomaDownloaded(callsign),
+        "qsos": qsos,
+    }
 
 
 @app.delete("/api/v1/logs", tags=["log"], dependencies=[Depends(auth.require_auth)])
@@ -291,8 +319,8 @@ def download_diploma(callsign, lang="en"):
     if "/" in callsign:
         callsign = callsign.replace("/", "_")
     diplomaPath = os.path.join(baseDir, "diplomas", f"diploma_{callsign.lower()}_{lang}.pdf")
-    #handle_db.diplomaQslDownload(callsign, "downloadDiploma")
     if os.path.exists(diplomaPath):
+        handle_db.diplomaDownload(callsign)
         return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG24CCS.pdf")
     else:
         return {"error":"not exists"}
@@ -341,6 +369,7 @@ def downloaded_qsl(callsign, timestamp, fileNr):
         callsign = callsign.replace("/", "_")
     qslPath = os.path.join(baseDir, "qsls", f'qsl_{callsign}_{timestamp}.pdf')
     if os.path.exists(qslPath):
+        handle_db.qslDownload(callsign, timestamp)
         return FileResponse(qslPath, media_type='application/octet-stream',filename=f"{fileNr}.pdf")
     else:
         return {"error":"not exists"}
@@ -369,11 +398,15 @@ def statistics():
             modeBandTable[mode][band] = 0
 
     nrOfQsos = 0
+    countryCounts = {}
     participants = handle_db.getAllParticipant()
 
     for callsign in participants:
         logs = handle_db.query(callsign)
         nrOfQsos += len(logs)
+
+        c = country.getCountry(callsign) or "Ismeretlen"
+        countryCounts[c] = countryCounts.get(c, 0) + len(logs)
 
         aa = [(i["band"], i["mode"]) for i in logs]
         for a in aa:
@@ -399,6 +432,10 @@ def statistics():
             valid_qso_3_or_more.append(callsign)
 
 
+    countriesSorted = sorted(countryCounts.items(), key=lambda kv: kv[1], reverse=True)
+    countryStat = [{"country": k, "count": v} for k, v in countriesSorted]
+    nrOfCountries = len([x for x in countryStat if x["country"] != "Ismeretlen"])
+
     stat = {
         "nr_of_qso": nrOfQsos,
             "participanst_nr": len(participants),
@@ -406,7 +443,9 @@ def statistics():
             "1validQso": valid_qso_1,
             "2validQso": valid_qso_2,
             "validDiploma": valid_qso_3_or_more,
-            "downlodedDiplomaNr": downloadedDiplomas_nr
+            "downlodedDiplomaNr": downloadedDiplomas_nr,
+            "nr_of_countries": nrOfCountries,
+            "countries": countryStat
             }
 
     return stat
@@ -476,6 +515,33 @@ async def upload_file(folder:str, file: UploadFile):
 
     return {"path": fileLocation}
 
+
+@app.post("/api/v1/upload_db", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+async def upload_db(file: UploadFile):
+    content = await file.read()
+    handle_db.replaceDatabase(content)
+    return {"status": "ok", "note": "Az adatbázis cserélve. A biztos működéshez ajánlott a backend újraindítása."}
+
+
+@app.get("/api/v1/export_logs", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+def export_logs():
+    return {"logs": handle_db.exportLogs()}
+
+
+@app.post("/api/v1/import_logs", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+async def import_logs(file: UploadFile):
+    content = await file.read()
+    data = json.loads(content)
+    if isinstance(data, dict) and "logs" in data:
+        data = data["logs"]
+    added = handle_db.importLogs(data)
+    return {"added": added, "total_in_file": len(data)}
+
+
+@app.delete("/api/v1/clear_db", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+def clear_db():
+    deleted = handle_db.clearAllLogs()
+    return {"deleted": deleted}
 
 
 if __name__ == "__main__":

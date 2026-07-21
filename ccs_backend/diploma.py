@@ -68,6 +68,10 @@ def generate_fpdf(callsign, out_path, lang="en"):
     pdf.cell(0, 0, callsign.upper())
 
     pdf.set_title("HG25CCS")
+
+    # A cél mappa (pl. .../diplomas) nem feltétlenül létezik – az fpdf nem
+    # hozza létre a hiányzó szülőkönyvtárat, ezért itt biztosítjuk.
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
     pdf.output(out_path)
 
 if __name__ == "__main__":

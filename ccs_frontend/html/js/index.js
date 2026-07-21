@@ -2,6 +2,69 @@ $(function() {
     $('#header').load('header.html');
 });
 
+// --- Oldal aktiválás ---
+// Alapból (index.html) az oldalnak aktiváltnak kell lennie ahhoz, hogy a
+// keresés működjön. Az index2.html teszt-oldal a betöltés előtt
+// window.CCS_ENFORCE_ACTIVATION = false-ra állítja, így ott a keresés mindig
+// működik, függetlenül az aktiválási állapottól.
+const CCS_ENFORCE_ACTIVATION =
+    (typeof window.CCS_ENFORCE_ACTIVATION === "undefined") ? true : !!window.CCS_ENFORCE_ACTIVATION;
+
+let ccsSiteActive = false;
+
+function ccsLang() {
+    const el = document.getElementById("langSelectOption");
+    return (el && el.value) ? el.value : "hu";
+}
+
+// Igaz, ha most szabad keresni: teszt-oldalon mindig, egyébként csak aktív oldalon.
+function ccsSearchAllowed() {
+    return !CCS_ENFORCE_ACTIVATION || ccsSiteActive;
+}
+
+function ccsInactiveMessage() {
+    return ccsLang() === "en"
+        ? "The search is not active yet."
+        : "A keresés még nincs aktiválva.";
+}
+
+// A keresés gombok engedélyezése/tiltása az aktiválási állapot szerint.
+function ccsApplyActivationState() {
+    if (!CCS_ENFORCE_ACTIVATION) return; // teszt-oldal: mindig engedélyezett
+
+    const btns = [
+        document.getElementById("callsignQueryBtn"),
+        document.getElementById("callsignQueryBtnQsl"),
+    ];
+    btns.forEach(function (btn) {
+        if (!btn) return;
+        btn.disabled = !ccsSiteActive;
+        btn.title = ccsSiteActive ? "" : ccsInactiveMessage();
+    });
+
+    const diplomaEl = document.getElementById("diploma_result");
+    const qslEl = document.getElementById("qsl_result");
+    if (!ccsSiteActive) {
+        if (diplomaEl) diplomaEl.textContent = ccsInactiveMessage();
+        if (qslEl) qslEl.textContent = ccsInactiveMessage();
+    } else {
+        if (diplomaEl && diplomaEl.dataset.inactive === "1") diplomaEl.textContent = "";
+        if (qslEl && qslEl.dataset.inactive === "1") qslEl.textContent = "";
+    }
+    if (diplomaEl) diplomaEl.dataset.inactive = ccsSiteActive ? "0" : "1";
+    if (qslEl) qslEl.dataset.inactive = ccsSiteActive ? "0" : "1";
+}
+
+// Induláskor: ha kötelező az aktiválás, addig tiltjuk a gombokat, amíg a
+// szerver meg nem erősíti, hogy az oldal aktív.
+if (CCS_ENFORCE_ACTIVATION) {
+    ccsApplyActivationState(); // azonnal letiltjuk (ccsSiteActive még false)
+    fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/site_active`)
+        .then(resp => resp.json())
+        .then(data => { ccsSiteActive = !!data.active; ccsApplyActivationState(); })
+        .catch(() => { ccsSiteActive = false; ccsApplyActivationState(); });
+}
+
 document.getElementById("callsign").addEventListener("keypress", (e) => {
     if (e.key == "Enter") document.getElementById("callsignQueryBtn").click();
 })
@@ -12,6 +75,11 @@ document.getElementById("callsign_qsl").addEventListener("keypress", (e) => {
 
 document.getElementById("callsignQueryBtnQsl").addEventListener("click", (evt) => {
     evt.preventDefault();
+
+    if (!ccsSearchAllowed()) {
+        document.getElementById("qsl_result").textContent = ccsInactiveMessage();
+        return;
+    }
 
     const lang = document.getElementById("langSelectOption").value;
     if (lang == "hu") {
@@ -62,7 +130,12 @@ document.getElementById("callsignQueryBtnQsl").addEventListener("click", (evt) =
 
 document.getElementById("callsignQueryBtn").addEventListener("click", (evt) => {
     evt.preventDefault();
-    
+
+    if (!ccsSearchAllowed()) {
+        document.getElementById("diploma_result").textContent = ccsInactiveMessage();
+        return;
+    }
+
     const lang = document.getElementById("langSelectOption").value;
     if (lang == "hu") {
         document.getElementById("diploma_result").innerHTML = "folyamatban..."
