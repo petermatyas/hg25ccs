@@ -23,9 +23,10 @@ function ccsSearchAllowed() {
 }
 
 function ccsInactiveMessage() {
-    return ccsLang() === "en"
-        ? "The search is not active yet."
-        : "A keresés még nincs aktiválva.";
+    //return ccsLang() === "en"
+    //    ? "The search is not active yet."
+    //    : "A keresés még nincs aktiválva.";
+    return ""
 }
 
 // A keresés gombok engedélyezése/tiltása az aktiválási állapot szerint.
