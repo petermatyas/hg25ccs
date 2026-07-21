@@ -43,8 +43,37 @@
                 <li class="list-group-item"><b>Mielőtt  elkezded a forgalmazást, foglald le a sávot!!! Ha befejezted, töröld a foglalást!!!</b></li>
                 <li class="list-group-item">Lehetőleg minden nap este töltsd fel a logokat. Nem kell minden nap új logfájlt nyitni, a duplikált logokat lekezeli a program.</li>
                 <!--<li class="list-group-item">ADIF, EDI, vagy CALLIBRO legyen a logfájl</li>-->
-                <li class="list-group-item">Hogy megkülönböztethetőek legyenek a logok, kérlek írd bele a hívójeledet a fájlnévbe. Pl.: HG25CCS_HA1MP_08_01.cbr</li>
-            
+                <li class="list-group-item">a hívójeled szerepeljen a logban</li>
+                <li class="list-group-item">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Formátum</th>
+                                <th scope="col">Kiterjesztés</th>
+                                <th scope="col">Elvárt helye a hívójelnek</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>EDI</td>
+                                <td>*.edi</td>
+                                <td>MOpe1={hívójel}></td>
+                            </tr>
+                            <tr>
+                                <td>ADIF</td>
+                                <td>*.adi vagy *.adif</td>
+                                <td>&lt;station_callsign:{hívójel karaktereinek száma}&gt;{hívójel}</td>
+                            </tr>
+                            <tr>
+                                <td>Callibro</td>
+                                <td>*.crb vagy *.log</td>
+                                <td>CALLSIGN: {hívójel}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </li>
+                <li class="list-group-item"><b>VAGY</b> a log fájl nevében. Például: HG25CCS_{dátum}_{hívójel}.adif formátumban</li>
+                
             </ul>
         </div>
         <div class="row my-2 p-3 border border-primary">
