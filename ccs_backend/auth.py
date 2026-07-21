@@ -40,7 +40,7 @@ def _load_users():
         username = entry.get("username")
         password = entry.get("password")
         if username and password is not None:
-            users[username] = str(password)
+            users[username.lower()] = str(password).lower()
     return users
 
 
