@@ -49,8 +49,10 @@ operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA"]
 modes.sort()
 operators.sort()
 
-if not os.path.exists(os.path.join(baseDir, "qsls")):
-    os.makedirs(os.path.join(baseDir, "qsls"))
+# A futáshoz szükséges könyvtárak létrehozása, ha még nem léteznek.
+# (A log-feltöltés a "logs", a diploma-generálás a "diplomas" mappába ír.)
+for _subdir in ("qsls", "logs", "diplomas"):
+    os.makedirs(os.path.join(baseDir, _subdir), exist_ok=True)
 
 @app.get("/api/v1")
 def read_root():
