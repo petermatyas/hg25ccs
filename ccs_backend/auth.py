@@ -40,7 +40,7 @@ def _load_users():
         username = entry.get("username")
         password = entry.get("password")
         if username and password is not None:
-            users[username.lower()] = str(password).lower()
+            users[str(username).strip().lower()] = str(password)
     return users
 
 
@@ -49,10 +49,11 @@ _USERS = _load_users()
 
 def verify_credentials(username, password):
     """Igaz, ha a felhasználónév/jelszó páros szerepel a users.json-ban."""
-    stored = _USERS.get(username)
+    normalized_username = str(username).strip().lower()
+    stored = _USERS.get(normalized_username)
     if stored is None:
         return False
-    return hmac.compare_digest(stored, str(password))
+    return hmac.compare_digest(stored.lower(), str(password).lower())
 
 
 def _sign(payload):
