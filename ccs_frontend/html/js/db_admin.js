@@ -39,7 +39,49 @@ function downloadWithAuth(url, filename) {
         .catch(err => dbMsg("Hiba a letöltésnél: " + err.message, true));
 }
 
+// Az oldal aktiválási állapotának megjelenítése a kapcsolón és a felirat.
+function setSiteActiveUi(active) {
+    const toggle = document.getElementById("siteActiveToggle");
+    const state = document.getElementById("siteActiveState");
+    if (toggle) toggle.checked = active;
+    if (state) {
+        state.textContent = active ? "AKTÍV" : "INAKTÍV";
+        state.className = active ? "text-success" : "text-danger";
+    }
+}
+
+function loadSiteActive() {
+    fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/site_active`)
+        .then(r => r.json())
+        .then(d => setSiteActiveUi(!!d.active))
+        .catch(() => setSiteActiveUi(false));
+}
+
 function bindDbAdmin() {
+    // 0) Oldal aktiválása
+    const siteToggle = document.getElementById("siteActiveToggle");
+    if (siteToggle) {
+        loadSiteActive();
+        siteToggle.addEventListener("change", function () {
+            const active = siteToggle.checked;
+            dbMsg("Mentés...");
+            fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/site_active`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ active: active })
+            })
+                .then(r => r.json())
+                .then(d => {
+                    setSiteActiveUi(!!d.active);
+                    dbMsg(d.active ? "Az oldal aktiválva – a keresés működik." : "Az oldal deaktiválva – a keresés nem működik.");
+                })
+                .catch(err => {
+                    dbMsg("Hiba az állapot mentésénél: " + err.message, true);
+                    loadSiteActive(); // visszaállítjuk a kapcsolót a valós állapotra
+                });
+        });
+    }
+
     // 1) Teljes adatbázis letöltése
     document.getElementById("dbDownloadBtn").addEventListener("click", function() {
         downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_db`, `logs_${tsString()}.sqlite3`);

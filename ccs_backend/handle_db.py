@@ -57,6 +57,13 @@ class QslDownload(Base):
     timestamp_utc = Column(Integer)
 
 
+class Setting(Base):
+    """Egyszerű kulcs-érték beállítástár (pl. az oldal aktiválási állapota)."""
+    __tablename__ = 'setting'
+    key = Column(String, primary_key=True)
+    value = Column(String)
+
+
 
 if not os.path.exists(databaseDir):
     os.makedirs(databaseDir)
@@ -361,11 +368,35 @@ def getActiveBands():
 
 def getActiveBandsHistory():
     aaa = session.query(ActiveBand).all()
-    return [{"callsign":i.callsign, 
-             "mode":i.mode, 
-             "band": i.band, 
+    return [{"callsign":i.callsign,
+             "mode":i.mode,
+             "band": i.band,
              "start_timestamp_utc":i.start_timestamp_utc,
              "end_timestamp_utc":i.end_timestamp_utc} for i in aaa]
+
+
+# ---- Beállítások (kulcs-érték) ----
+
+def getSetting(key, default=None):
+    row = session.query(Setting).where(Setting.key == key).first()
+    return row.value if row is not None else default
+
+def setSetting(key, value):
+    row = session.query(Setting).where(Setting.key == key).first()
+    if row is None:
+        session.add(Setting(key=key, value=str(value)))
+    else:
+        row.value = str(value)
+    session.commit()
+
+# Az oldal (index.html-en a keresés) aktiválási állapota. Alapból inaktív:
+# amíg az admin nem aktiválja, az index.html keresés nem működik.
+def getSiteActive():
+    return getSetting("site_active", "0") == "1"
+
+def setSiteActive(active):
+    setSetting("site_active", "1" if active else "0")
+    return getSiteActive()
 
 
 

@@ -6,9 +6,12 @@
   --navbar: hsl(349, 63%, 20%);
   --text: #f3eee8;
   --text-muted: #dfd3ce;
-  --button: #e0c78c;
-  --button-text: #4b3b2a;
-  --dropdown-bg: hsl(349, 63%, 20%).
+  --button: #cdd0ce;
+  --button-text: #2c2c2e;
+  --button-hover: #e6e8e6;
+  --link: #d4d8d9;
+  --link-hover: #f4f6f6;
+  --dropdown-bg: hsl(349, 63%, 20%);
 }
 
 body {
@@ -27,13 +30,28 @@ body {
 .btn_brown {
   background-color: var(--button) !important;
   color: var(--button-text) !important;
-  border-color: #c9ad6b !important;
+  border-color: #b6b9b7 !important;
 }
 
 .btn_brown:hover,
 .btn_brown:focus {
-  background-color: #ead7aa !important;
+  background-color: var(--button-hover) !important;
   color: #36291d !important;
+}
+
+/* Másodlagos (körvonalas) gomb, pl. a "Példák" gomb – a sötét bordó
+   háttéren a Bootstrap alap sötét körvonala láthatatlan, ezért aranyra. */
+.btn-outline-dark {
+  color: var(--button) !important;
+  border-color: var(--button) !important;
+}
+
+.btn-outline-dark:hover,
+.btn-outline-dark:focus,
+.btn-outline-dark:active {
+  background-color: var(--button) !important;
+  color: var(--button-text) !important;
+  border-color: var(--button) !important;
 }
 
 .navbar {
@@ -42,25 +60,29 @@ body {
 
 .navbar-brand > div:nth-child(1),
 #navbarSupportedContent > ul > li > a {
-  color: #ffffff !important;
+  color: var(--text) !important;
 }
 
 #navbarSupportedContent > ul > li > a:hover,
 #navbarSupportedContent > ul > li > a:focus {
-  color: #f1d9de !important;
+  color: var(--link-hover) !important;
+}
+
+/* A navigációs linkeket ne húzzuk alá (a tartalmi linkekkel ellentétben). */
+.navbar a {
+  text-decoration: none !important;
 }
 
 #langSelectOption {
-  background-color: var(--dropdown-bg) !important;
-  border-style: solid;
-  border-width: 45px;
-  border-color: #ffffff;
-  color: #ffffff;
+  background-color: var(--button) !important;
+  color: var(--button-text) !important;
+  border: 1px solid #b6b9b7 !important;
+  outline: 0 !important;
 }
 
 #langSelectOption > option {
-  background-color: var(--dropdown-bg) !important;
-  color: #9a0000 !important;
+  background-color: var(--button) !important;
+  color: var(--button-text) !important;
 }
 
 h1 {
@@ -113,12 +135,17 @@ p {
 }
 
 a {
-  color: #f2d1d8;
+  color: var(--link) !important;
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 216, 217, 0.5);
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
 }
 
 a:hover,
 a:focus {
-  color: #ffffff;
+  color: var(--link-hover) !important;
+  text-decoration-color: var(--link-hover);
 }
 
 .header {
@@ -134,6 +161,19 @@ a:focus {
   color: var(--button-text) !important;
   border: 0 !important;
   outline: 0 !important;
+}
+
+/* A "Példák" legördülő panel – az oldal hátteréhez hasonló, csak halványabb. */
+#collapseWidthExample .card,
+#collapseWidthExample .card-body {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+#collapseWidthExample .list-group-item {
+  background-color: transparent !important;
+  color: var(--text) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
 table,

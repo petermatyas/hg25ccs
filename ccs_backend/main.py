@@ -76,6 +76,23 @@ def me(username: str = Depends(auth.require_auth)):
     return {"username": username}
 
 
+class SiteActiveRequest(BaseModel):
+    active: bool
+
+
+@app.get("/api/v1/site_active", tags=["site"])
+def get_site_active():
+    """Az oldal aktiválási állapota (publikus). Az index.html ez alapján
+    engedélyezi vagy tiltja a keresés gombokat."""
+    return {"active": handle_db.getSiteActive()}
+
+
+@app.post("/api/v1/site_active", tags=["site"], dependencies=[Depends(auth.require_auth)])
+def set_site_active(req: SiteActiveRequest):
+    """Az oldal aktiválása/deaktiválása (csak admin). A db_admin oldalról hívjuk."""
+    return {"active": handle_db.setSiteActive(req.active)}
+
+
 def preGenerateDiplomas(callsignList):
     for callsign in callsignList:
         print("diploma generation", callsign)
