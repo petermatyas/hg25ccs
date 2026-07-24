@@ -183,7 +183,7 @@ def logs(ts, filename):
              "local_operator":i.local_operator,
              "log_timestamp_utc":i.log_timestamp_utc} for i in res]
 
-@app.get("/api/v1/logs_by_callsign", tags=["log"])
+@app.get("/api/v1/logs_by_callsign", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def logsByCallsign(callsign):
     
     qsos = handle_db.query(callsign)
@@ -272,8 +272,8 @@ def add_mode(newMode:str):
     modes.append(newMode)
     modes.sort()
 
-@app.get("/api/v1/operators", tags=["operator"])
-def get_operators():   
+@app.get("/api/v1/operators", tags=["operator"], dependencies=[Depends(auth.require_auth)])
+def get_operators():
     return operators
 
 @app.post("/api/v1/operator", tags=["operator"], dependencies=[Depends(auth.require_auth)])
@@ -331,7 +331,7 @@ def download_diploma(callsign, lang="en"):
         return {"error":"not exists"}
 
 
-@app.get("/api/v1/downloaded_diplomas", tags=["diploma"])
+@app.get("/api/v1/downloaded_diplomas", tags=["diploma"], dependencies=[Depends(auth.require_auth)])
 def downloaded_diplomas():
     return handle_db.getDownloadedDiplomas()
 
@@ -359,7 +359,7 @@ def generate_qsl(callsign, lang="en"):
     #print(resList)
     return resList
 
-@app.get("/api/v1/generate_all_qsl", tags=["qsl"])
+@app.get("/api/v1/generate_all_qsl", tags=["qsl"], dependencies=[Depends(auth.require_auth)])
 def generate_all_qsl():
     for callsign in handle_db.getAllParticipant():
         print(callsign)
@@ -379,7 +379,7 @@ def downloaded_qsl(callsign, timestamp, fileNr):
     else:
         return {"error":"not exists"}
 
-@app.get("/api/v1/statistics", tags=["statistics"])
+@app.get("/api/v1/statistics", tags=["statistics"], dependencies=[Depends(auth.require_auth)])
 def statistics():
 
     downloadedDiplomas_nr = len(list(set([i[1] for i in handle_db.getDownloadedDiplomas()])))

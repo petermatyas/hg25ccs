@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /db_admin.html
+Disallow: /admin_header.html
+Disallow: /statistics.html
+
+Sitemap: https://www.hg25ccs.eu/sitemap.xml
