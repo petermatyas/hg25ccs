@@ -4,5 +4,6 @@ Disallow: /admin.html
 Disallow: /db_admin.html
 Disallow: /admin_header.html
 Disallow: /statistics.html
+Disallow: /index2.html
 
 Sitemap: https://www.hg25ccs.eu/sitemap.xml
