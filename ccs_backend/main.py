@@ -1,7 +1,9 @@
 from typing import Union
 #from typing import Annotated
 
-from fastapi import FastAPI, UploadFile, Depends, HTTPException
+from typing import Optional
+
+from fastapi import FastAPI, UploadFile, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -15,6 +17,7 @@ import pytz
 import os
 import json
 import threading
+import hashlib
 from zipfile import ZipFile
 import re
 
@@ -26,6 +29,8 @@ import diploma
 import qsl
 import country
 import auth
+import geo
+import useragent
 
 baseDir = os.path.dirname(os.path.abspath(__file__))
 
@@ -48,6 +53,12 @@ modes     = ["CW", "SSB", "FM", "DIGI"]
 operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA"]
 
 extraDiplomaList = []
+
+# A látogató-azonosító hash sózásához használt titok. STABIL (nem forgó) só,
+# hogy a "visszatérő vs. új" napok között is működjön. Nyers IP-t sosem
+# tárolunk, csak az ebből képzett hasht. Élesben állítsd be a
+# CCS_ANALYTICS_SALT környezeti változót (openssl rand -hex 32).
+ANALYTICS_SALT = os.environ.get("CCS_ANALYTICS_SALT", "change-this-ccs-analytics-salt")
 
 modes.sort()
 operators.sort()
@@ -96,6 +107,88 @@ def get_site_active():
 def set_site_active(req: SiteActiveRequest):
     """Az oldal aktiválása/deaktiválása (csak admin). A db_admin oldalról hívjuk."""
     return {"active": handle_db.setSiteActive(req.active)}
+
+
+# ---- Látogatottság (saját, süti-mentes számláló) ----
+
+class HitRequest(BaseModel):
+    """A böngésző által küldött adatok egy oldalletöltésről. Az IP-t és a
+    User-Agentet NEM innen, hanem a kérés fejléceiből vesszük."""
+    path: Optional[str] = None
+    referrer: Optional[str] = None
+    screen_w: Optional[int] = None
+    screen_h: Optional[int] = None
+    viewport_w: Optional[int] = None
+    viewport_h: Optional[int] = None
+    device_pixel_ratio: Optional[str] = None
+
+
+def _client_ip(request: Request) -> str:
+    """A valódi látogató IP-je. Az nginx az X-Forwarded-For / X-Real-IP
+    fejlécet beállítja; az XFF első eleme az eredeti kliens."""
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    xri = request.headers.get("X-Real-IP", "")
+    if xri:
+        return xri.strip()
+    return request.client.host if request.client else ""
+
+
+def _referrer_domain(referrer: str) -> str:
+    """A hivatkozó oldalból csak a domaint tartjuk meg (kevesebb adat, jobb
+    csoportosítás). Saját oldalról érkezés -> 'közvetlen/belső'."""
+    if not referrer:
+        return "közvetlen"
+    try:
+        from urllib.parse import urlparse
+        host = urlparse(referrer).netloc.lower()
+        return host or "közvetlen"
+    except Exception:
+        return "közvetlen"
+
+
+@app.post("/api/v1/hit", tags=["analytics"])
+def hit(req: HitRequest, request: Request):
+    """Egy oldalletöltés rögzítése. Publikus végpont (a látogatók hívják).
+
+    Adatvédelem: nyers IP-t nem tárolunk. A látogató-azonosító egy stabil
+    sóval képzett SHA-256 hash az (IP + User-Agent) párosból, csonkítva.
+    """
+    ip = _client_ip(request)
+    ua = request.headers.get("User-Agent", "")
+
+    visitor_hash = hashlib.sha256(
+        f"{ANALYTICS_SALT}|{ip}|{ua}".encode("utf-8")
+    ).hexdigest()[:16]
+
+    parsed = useragent.parse(ua)
+    now = int(time.time())
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    handle_db.addVisit({
+        "timestamp_utc": now,
+        "day": day,
+        "path": (req.path or "/")[:200],
+        "referrer": _referrer_domain(req.referrer)[:200],
+        "visitor_hash": visitor_hash,
+        "country": geo.country_of(ip),
+        "browser": parsed["browser"],
+        "os": parsed["os"],
+        "screen_w": req.screen_w,
+        "screen_h": req.screen_h,
+        "viewport_w": req.viewport_w,
+        "viewport_h": req.viewport_h,
+        "device_pixel_ratio": req.device_pixel_ratio,
+        "is_bot": parsed["is_bot"],
+    })
+    return {"ok": True}
+
+
+@app.get("/api/v1/visit_stats", tags=["analytics"], dependencies=[Depends(auth.require_auth)])
+def visit_stats(include_bots: bool = False):
+    """Összesített látogatottsági statisztika (csak admin)."""
+    return handle_db.getVisitStats(include_bots=include_bots)
 
 
 def preGenerateDiplomas(callsignList):

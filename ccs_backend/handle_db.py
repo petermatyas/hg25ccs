@@ -64,6 +64,32 @@ class Setting(Base):
     value = Column(String)
 
 
+class Visit(Base):
+    """Egy oldalletöltés (page view) a saját, süti-mentes látogatószámlálóból.
+
+    Nyers IP-t NEM tárolunk, csak a belőle (+ user agentből) képzett stabil
+    hasht (`visitor_hash`), így a látogatók megkülönböztethetők anélkül, hogy
+    személyes adatot őriznénk.
+    """
+    __tablename__ = 'visit'
+    id = Column(Integer, primary_key=True)
+    timestamp_utc = Column(Integer)
+    day = Column(String)            # 'YYYY-MM-DD' (UTC) — a napi bontáshoz
+    path = Column(String)           # melyik oldal
+    referrer = Column(String)       # honnan érkezett (domain)
+    visitor_hash = Column(String)   # pszeudonim látogató-azonosító (NEM IP)
+    is_returning = Column(Integer)  # 1, ha ezt a hasht már láttuk korábban
+    country = Column(String)        # GeoLite2 alapján, csak ország
+    browser = Column(String)
+    os = Column(String)
+    screen_w = Column(Integer)
+    screen_h = Column(Integer)
+    viewport_w = Column(Integer)
+    viewport_h = Column(Integer)
+    device_pixel_ratio = Column(String)
+    is_bot = Column(Integer)        # 1, ha keresőrobotnak tűnik
+
+
 
 if not os.path.exists(databaseDir):
     os.makedirs(databaseDir)
@@ -397,6 +423,110 @@ def getSiteActive():
 def setSiteActive(active):
     setSetting("site_active", "1" if active else "0")
     return getSiteActive()
+
+
+# ---- Látogatottság (page view számláló) ----
+
+def addVisit(fields: dict):
+    """Egy oldalletöltés rögzítése.
+
+    `fields` várt kulcsai: timestamp_utc, day, path, referrer, visitor_hash,
+    country, browser, os, screen_w, screen_h, viewport_w, viewport_h,
+    device_pixel_ratio, is_bot. A `is_returning` értéket itt számoljuk ki:
+    igaz, ha ezt a visitor_hasht már láttuk korábban.
+    """
+    visitor_hash = fields.get("visitor_hash")
+    seen_before = False
+    if visitor_hash:
+        seen_before = session.query(Visit.id) \
+            .where(Visit.visitor_hash == visitor_hash) \
+            .first() is not None
+
+    v = Visit(
+        timestamp_utc=fields.get("timestamp_utc", getCurrentUtcTs()),
+        day=fields.get("day"),
+        path=fields.get("path"),
+        referrer=fields.get("referrer"),
+        visitor_hash=visitor_hash,
+        is_returning=1 if seen_before else 0,
+        country=fields.get("country"),
+        browser=fields.get("browser"),
+        os=fields.get("os"),
+        screen_w=fields.get("screen_w"),
+        screen_h=fields.get("screen_h"),
+        viewport_w=fields.get("viewport_w"),
+        viewport_h=fields.get("viewport_h"),
+        device_pixel_ratio=fields.get("device_pixel_ratio"),
+        is_bot=1 if fields.get("is_bot") else 0,
+    )
+    session.add(v)
+    session.commit()
+    return {"is_returning": seen_before}
+
+
+def _visitTopCounts(column, base_query, limit=None):
+    """Segéd: egy oszlop szerinti csoportosított darabszám, csökkenő sorrendben."""
+    stmt = base_query \
+        .with_entities(column, func.count(Visit.id).label("cnt")) \
+        .group_by(column) \
+        .order_by(func.count(Visit.id).desc())
+    rows = stmt.all()
+    res = [{"key": (r[0] if r[0] is not None else "Ismeretlen"), "count": r[1]} for r in rows]
+    if limit is not None:
+        res = res[:limit]
+    return res
+
+
+def getVisitStats(include_bots=False):
+    """Összesített látogatottsági statisztika az admin nézethez."""
+    base = session.query(Visit)
+    if not include_bots:
+        base = base.where(Visit.is_bot == 0)
+
+    total_views = base.count()
+    unique_visitors = base.with_entities(Visit.visitor_hash).distinct().count()
+
+    # Új vs. visszatérő: az adott oldalletöltés első alkalom volt-e az adott
+    # látogatótól. (is_returning=0 -> ekkor láttuk először.)
+    returning_views = base.where(Visit.is_returning == 1).count()
+    new_views = total_views - returning_views
+
+    # Egyedi visszatérő látogatók száma (akiknek van legalább egy ismételt nézete).
+    returning_visitors = base.where(Visit.is_returning == 1) \
+        .with_entities(Visit.visitor_hash).distinct().count()
+
+    countries = _visitTopCounts(Visit.country, base)
+    browsers = _visitTopCounts(Visit.browser, base)
+    systems = _visitTopCounts(Visit.os, base)
+    pages = _visitTopCounts(Visit.path, base, limit=20)
+    referrers = _visitTopCounts(Visit.referrer, base, limit=20)
+
+    # Felbontás "SZÉLESSÉGxMAGASSÁG" formában.
+    res_rows = base.where(Visit.screen_w.isnot(None)) \
+        .with_entities(Visit.screen_w, Visit.screen_h, func.count(Visit.id).label("cnt")) \
+        .group_by(Visit.screen_w, Visit.screen_h) \
+        .order_by(func.count(Visit.id).desc()).all()
+    resolutions = [{"key": f"{r[0]}x{r[1]}", "count": r[2]} for r in res_rows]
+
+    # Napi bontás (növekvő időrend).
+    day_rows = base.with_entities(Visit.day, func.count(Visit.id).label("cnt")) \
+        .group_by(Visit.day).order_by(Visit.day.asc()).all()
+    daily = [{"day": r[0], "count": r[1]} for r in day_rows]
+
+    return {
+        "total_views": total_views,
+        "unique_visitors": unique_visitors,
+        "new_views": new_views,
+        "returning_views": returning_views,
+        "returning_visitors": returning_visitors,
+        "countries": countries,
+        "browsers": browsers,
+        "systems": systems,
+        "resolutions": resolutions,
+        "pages": pages,
+        "referrers": referrers,
+        "daily": daily,
+    }
 
 
 

@@ -62,6 +62,62 @@ function queryCallsign() {
 // A statisztikát csak sikeres bejelentkezés után töltjük be (auth.js hívja).
 function ccsOnAuthenticated() {
     fillStats();
+    fillVisitStats();
+
+    const botCb = document.getElementById("visitIncludeBots");
+    if (botCb) botCb.addEventListener("change", fillVisitStats);
+}
+
+// ---- Látogatottsági statisztika (saját számláló) ----
+
+// Egy "top" táblát tölt fel: [{key, count}] -> sorszám, kulcs, darab.
+function fillTopTable(tbodyId, rows) {
+    const tbody = document.getElementById(tbodyId);
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    (rows || []).forEach((r, i) => {
+        const label = (r.key === "" || r.key === null || r.key === undefined) ? "(nincs)" : r.key;
+        tbody.innerHTML += `<tr><td>${i + 1}</td><td>${escapeHtml(String(label))}</td><td>${r.count}</td></tr>`;
+    });
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function fillVisitStats() {
+    const includeBots = document.getElementById("visitIncludeBots");
+    const withBots = includeBots && includeBots.checked ? "true" : "false";
+    const url = `${PROTO}${HOST}${BACKENDPORT}/api/v1/visit_stats?include_bots=${withBots}`;
+
+    // Az Authorization fejlécet az auth.js globális fetch-felülírása csatolja
+    // (ugyanúgy, mint a fillStats()-nál), ezért itt nem kell külön kezelni.
+    fetch(url)
+        .then(resp => resp.json())
+        .then(data => {
+            const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+            set("v_total_views", data.total_views);
+            set("v_unique", data.unique_visitors);
+            set("v_new", data.new_views);
+            set("v_returning", data.returning_views);
+            set("v_returning_visitors", data.returning_visitors);
+
+            fillTopTable("v_countries", data.countries);
+            fillTopTable("v_browsers", data.browsers);
+            fillTopTable("v_systems", data.systems);
+            fillTopTable("v_resolutions", data.resolutions);
+            fillTopTable("v_pages", data.pages);
+            fillTopTable("v_referrers", data.referrers);
+
+            const dailyBody = document.getElementById("v_daily");
+            if (dailyBody) {
+                dailyBody.innerHTML = "";
+                (data.daily || []).forEach(d => {
+                    dailyBody.innerHTML += `<tr><td>${d.day}</td><td>${d.count}</td></tr>`;
+                });
+            }
+        })
+        .catch(err => console.error("visit_stats hiba:", err));
 }
 
 function removeTable(id) {

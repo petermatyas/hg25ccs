@@ -137,6 +137,102 @@
             <p id="diploma"></p>
         </div>
 
+        <hr>
+
+        <!-- ===== Látogatottság (saját, süti-mentes számláló) ===== -->
+        <div class="row my-3">
+            <h4>Látogatottság</h4>
+            <p class="text-muted" style="font-size:0.9em;">
+                Süti nélküli, saját mérés. A botokat alapból kiszűrjük.
+                <label class="ms-3"><input type="checkbox" id="visitIncludeBots"> Botok is</label>
+            </p>
+        </div>
+
+        <div class="row row-cols-2 row-cols-md-5 g-2 my-2">
+            <div class="col"><div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold" id="v_total_views">–</div>
+                <div class="text-muted" style="font-size:0.85em;">Oldalletöltés</div>
+            </div></div>
+            <div class="col"><div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold" id="v_unique">–</div>
+                <div class="text-muted" style="font-size:0.85em;">Egyedi látogató</div>
+            </div></div>
+            <div class="col"><div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold" id="v_new">–</div>
+                <div class="text-muted" style="font-size:0.85em;">Új megtekintés</div>
+            </div></div>
+            <div class="col"><div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold" id="v_returning">–</div>
+                <div class="text-muted" style="font-size:0.85em;">Visszatérő megtekintés</div>
+            </div></div>
+            <div class="col"><div class="border rounded p-2 text-center">
+                <div class="fs-4 fw-bold" id="v_returning_visitors">–</div>
+                <div class="text-muted" style="font-size:0.85em;">Visszatérő látogató</div>
+            </div></div>
+        </div>
+
+        <div class="row my-3">
+            <div class="col-md-6">
+                <h5>Országok</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>Ország</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_countries"></tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>Böngészők</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>Böngésző</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_browsers"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row my-3">
+            <div class="col-md-6">
+                <h5>Operációs rendszerek</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>OS</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_systems"></tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>Képernyőfelbontások</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>Felbontás</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_resolutions"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row my-3">
+            <div class="col-md-6">
+                <h5>Leglátogatottabb oldalak</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>Oldal</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_pages"></tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>Hivatkozó oldalak</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>#</th><th>Honnan</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_referrers"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="row my-3">
+            <div class="col-md-6">
+                <h5>Napi bontás</h5>
+                <table class="table table-sm table-striped">
+                    <thead><tr><th>Nap (UTC)</th><th>Megtekintés</th></tr></thead>
+                    <tbody id="v_daily"></tbody>
+                </table>
+            </div>
+        </div>
+        <!-- ===== /Látogatottság ===== -->
+
     </div>
     </div><!-- /adminContent -->
 

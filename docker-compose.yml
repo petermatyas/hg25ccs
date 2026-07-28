@@ -8,12 +8,27 @@ services:
     # Csak a ccs_frontend (nginx proxy) tudja elérni.
     expose:
       - "8800"
+    environment:
+      # A .env-ben felülírható; ha nincs .env, a fejlesztői alapértelmezést
+      # használja (élesben MINDENKÉPP állítsd be a .env-ben).
+      - CCS_AUTH_SECRET=${CCS_AUTH_SECRET:-change-this-ccs-admin-secret}
+      - CCS_ANALYTICS_SALT=${CCS_ANALYTICS_SALT:-change-this-ccs-analytics-salt}
+      # GeoLite2 ONLINE web service (a látogatók országának feloldásához).
+      # Üresen hagyva a számláló ország nélkül működik.
+      - CCS_GEOIP_ACCOUNT_ID=${CCS_GEOIP_ACCOUNT_ID:-}
+      - CCS_GEOIP_LICENSE_KEY=${CCS_GEOIP_LICENSE_KEY:-}
+      - CCS_GEOIP_HOST=${CCS_GEOIP_HOST:-geolite.info}
     volumes:
       # Feltöltött QSL kártyák / adatbázis megőrzése újraindítás után.
       - ./ccs_backend/qsls:/code/app/qsls
       - ./ccs_backend/database:/code/app/database
     networks:
+      # A frontend<->backend belső hálózat (nincs kifelé útvonala).
       - ccs_internal
+      # KIFELÉ menő internet a GeoLite2 web service (MaxMind) eléréséhez.
+      # A backendnek továbbra sincs "ports:" kulcsa, tehát BEFELÉ nem érhető
+      # el a webről; ez a hálózat csak a kimenő HTTPS-hívásokat teszi lehetővé.
+      - ccs_public
 
   ccs_frontend:
     image: nginx:1.27-alpine
