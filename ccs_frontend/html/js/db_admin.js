@@ -1,6 +1,7 @@
 
 $(function() {
-    $('#header').load('admin_header.html');
+    // A headert az admin.js tölti be egyszer (az admin.html mindhárom
+    // feladat-JS-t egy oldalon tölti); itt nem duplikáljuk.
     bindDbAdmin();
 });
 
