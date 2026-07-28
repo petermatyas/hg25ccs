@@ -18,6 +18,11 @@ FIGYELEM: a backend konténernek KIFELÉ menő internetkapcsolat kell ehhez
 """
 
 import os
+import ipaddress
+
+# Bőbeszédű naplózás a hibakereséshez (CCS_GEOIP_DEBUG=1). Enélkül csak a
+# tényleges lookup-hibákat naplózzuk, a privát IP-ket csendben átugorjuk.
+DEBUG = os.environ.get("CCS_GEOIP_DEBUG", "").strip().lower() in ("1", "true", "yes")
 
 ACCOUNT_ID = os.environ.get("CCS_GEOIP_ACCOUNT_ID", "").strip()
 LICENSE_KEY = os.environ.get("CCS_GEOIP_LICENSE_KEY", "").strip()
@@ -67,6 +72,17 @@ def _get_client():
     return _client
 
 
+def _is_private(ip):
+    """Privát / lokális / nem publikus IP? Ezeket a MaxMind nem tudja
+    geolokálni (localhost, LAN, docker-belső hálózat, stb.)."""
+    try:
+        addr = ipaddress.ip_address(ip)
+        return (addr.is_private or addr.is_loopback or addr.is_reserved
+                or addr.is_link_local or addr.is_unspecified)
+    except ValueError:
+        return False
+
+
 def country_of(ip):
     """Az IP-hez tartozó ország neve (angolul), vagy 'Ismeretlen'.
 
@@ -79,6 +95,14 @@ def country_of(ip):
     if ip in _cache:
         return _cache[ip]
 
+    # Privát / lokális IP-t (localhost, LAN, docker) online nem lehet feloldani.
+    # Ez a leggyakoribb oka a fejlesztés közbeni "Ismeretlen"-nek.
+    if _is_private(ip):
+        if DEBUG:
+            print(f"[geo] privát/lokális IP, nem geolokálható: {ip}")
+        _cache[ip] = UNKNOWN
+        return UNKNOWN
+
     client = _get_client()
     if client is None:
         return UNKNOWN
@@ -86,9 +110,13 @@ def country_of(ip):
     try:
         resp = client.country(ip)
         result = resp.country.name or UNKNOWN
-    except Exception:
-        # AddressNotFoundError (privát IP), AuthenticationError,
-        # OutOfQueriesError, hálózati hiba, stb. -> ne dőljön el a /hit.
+        if DEBUG:
+            print(f"[geo] {ip} -> {result}")
+    except Exception as e:
+        # AddressNotFoundError, AuthenticationError, OutOfQueriesError,
+        # hálózati hiba, stb. -> ne dőljön el a /hit, de NAPLÓZZUK az okot,
+        # hogy látszódjon, miért lett "Ismeretlen".
+        print(f"[geo] lookup hiba (ip={ip}): {type(e).__name__}: {e}")
         result = UNKNOWN
 
     # Gyorsítótár korlátozása (egyszerű: túlcsordulásnál ürítjük).
