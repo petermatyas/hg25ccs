@@ -169,7 +169,28 @@ function fillStats() {
 
 
         //document.getElementById("1qso").innerText = data["1validQso"].join(" ")
-        document.getElementById("diploma").innerText = data["validDiploma"].join(", ")
+
+        // Diplomát szerzettek: hívójelenként a diploma-letöltés és a letöltött
+        // QSL lapok száma a maximálisból.
+        const diplomaBody = document.getElementById("diploma");
+        if (diplomaBody) {
+            diplomaBody.innerHTML = "";
+            let details = data["validDiplomaDetails"];
+            if (!details) {
+                // Visszafelé kompatibilis tartalék, ha a backend még csak a
+                // hívójel-listát adja (részletek nélkül).
+                details = (data["validDiploma"] || []).map(c => ({ callsign: c }));
+            }
+            details.forEach(d => {
+                let diplomaCell = d.diploma_downloaded
+                    ? '<span class="text-success fw-bold">igen</span>'
+                    : '<span class="text-danger">nem</span>';
+                let qslCell = (d.qsl_total === undefined)
+                    ? "–"
+                    : `${d.qsl_downloaded || 0} / ${d.qsl_total}`;
+                diplomaBody.innerHTML += `<tr><td>${d.callsign}</td><td>${diplomaCell}</td><td>${qslCell}</td></tr>`;
+            });
+        }
 
         removeTable("#statBandModeTableId");
         tableBody = $("#statBandModeTableId")

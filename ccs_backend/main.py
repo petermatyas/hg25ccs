@@ -545,6 +545,7 @@ def statistics():
     valid_qso_1 = list()
     valid_qso_2 = list()
     valid_qso_3_or_more = list()
+    valid_diploma_details = list()
     modeBandTable = dict()
 
 
@@ -593,6 +594,14 @@ def statistics():
             valid_qso_2.append(callsign)
         else:
             valid_qso_3_or_more.append(callsign)
+            # Diplomát szerzett hívójel részletei: letöltötte-e a diplomát,
+            # és a maximálisból (összes QSO/QSL) hány QSL lapot töltött le.
+            valid_diploma_details.append({
+                "callsign": callsign,
+                "diploma_downloaded": handle_db.isDiplomaDownloaded(callsign),
+                "qsl_downloaded": len(handle_db.getDownloadedQslTimestamps(callsign)),
+                "qsl_total": len(logs),
+            })
 
 
     countriesSorted = sorted(countryCounts.items(), key=lambda kv: kv[1], reverse=True)
@@ -606,6 +615,7 @@ def statistics():
             "1validQso": valid_qso_1,
             "2validQso": valid_qso_2,
             "validDiploma": valid_qso_3_or_more,
+            "validDiplomaDetails": valid_diploma_details,
             "downlodedDiplomaNr": downloadedDiplomas_nr,
             "nr_of_countries": nrOfCountries,
             "countries": countryStat
