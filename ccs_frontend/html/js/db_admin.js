@@ -49,6 +49,17 @@ function setSiteActiveUi(active) {
         state.textContent = active ? "AKTÍV" : "INAKTÍV";
         state.className = active ? "text-success" : "text-danger";
     }
+
+    // Biztonsági zár: amíg az oldal AKTÍV, a tartalom törlése tiltva
+    // (nehogy élesben véletlenül kiürüljön az adatbázis). Csak inaktív
+    // állapotban engedélyezett.
+    const clearBtn = document.getElementById("dbClearBtn");
+    if (clearBtn) {
+        clearBtn.disabled = active;
+        clearBtn.title = active
+            ? "Az oldal aktív – előbb deaktiváld az oldalt a törléshez."
+            : "";
+    }
 }
 
 function loadSiteActive() {
