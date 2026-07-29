@@ -55,14 +55,24 @@ def _fallback(ua):
             os_name = name
             break
 
-    return {"browser": browser, "os": os_name, "is_bot": is_bot}
+    # Eszköztípus.
+    if re.search(r"ipad|tablet|playbook|silk", ua, re.IGNORECASE) or \
+       (re.search(r"android", ua, re.IGNORECASE) and not re.search(r"mobile", ua, re.IGNORECASE)):
+        device_type = "tablet"
+    elif re.search(r"mobi|iphone|ipod|android.*mobile|windows phone", ua, re.IGNORECASE):
+        device_type = "mobil"
+    else:
+        device_type = "desktop"
+
+    return {"browser": browser, "os": os_name, "device_type": device_type, "is_bot": is_bot}
 
 
 def parse(ua):
-    """Visszaad: {'browser', 'os', 'is_bot'}. Üres UA-t botként kezel."""
+    """Visszaad: {'browser', 'os', 'device_type', 'is_bot'}. Üres UA-t botként kezel."""
     ua = (ua or "").strip()
     if not ua:
-        return {"browser": "Ismeretlen", "os": "Ismeretlen", "is_bot": True}
+        return {"browser": "Ismeretlen", "os": "Ismeretlen",
+                "device_type": "Ismeretlen", "is_bot": True}
 
     if not _HAS_LIB:
         return _fallback(ua)
@@ -71,8 +81,17 @@ def parse(ua):
         parsed = _ua_parse(ua)
         browser = parsed.browser.family or "Ismeretlen"
         os_name = parsed.os.family or "Ismeretlen"
+        if parsed.is_tablet:
+            device_type = "tablet"
+        elif parsed.is_mobile:
+            device_type = "mobil"
+        elif parsed.is_pc:
+            device_type = "desktop"
+        else:
+            device_type = "egyéb"
         # A user_agents is_bot mellé a saját regexünk is (kettős védelem).
         is_bot = bool(parsed.is_bot) or bool(_BOT_RE.search(ua))
-        return {"browser": browser, "os": os_name, "is_bot": is_bot}
+        return {"browser": browser, "os": os_name,
+                "device_type": device_type, "is_bot": is_bot}
     except Exception:
         return _fallback(ua)

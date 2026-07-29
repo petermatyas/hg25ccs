@@ -121,6 +121,23 @@ class HitRequest(BaseModel):
     viewport_w: Optional[int] = None
     viewport_h: Optional[int] = None
     device_pixel_ratio: Optional[str] = None
+    language: Optional[str] = None
+    timezone: Optional[str] = None
+    connection_type: Optional[str] = None
+
+
+class HitUpdateRequest(BaseModel):
+    """A kilépéskor küldött elköteleződési adatok egy meglévő látogatáshoz."""
+    visit_id: int
+    time_on_page_ms: Optional[int] = None
+    scroll_depth: Optional[int] = None
+    load_time_ms: Optional[int] = None
+
+
+class EventRequest(BaseModel):
+    """Egy kattintás-esemény (pl. keresés / letöltés gomb)."""
+    path: Optional[str] = None
+    event: Optional[str] = None
 
 
 def _client_ip(request: Request) -> str:
@@ -148,25 +165,33 @@ def _referrer_domain(referrer: str) -> str:
         return "közvetlen"
 
 
+def _visitor_hash(request: Request) -> str:
+    """A látogató pszeudonim azonosítója: SHA-256(salt | IP | User-Agent),
+    csonkítva. Nyers IP-t sehol nem tárolunk, csak ezt. Ugyanaz a képlet, mint
+    a /hit-ben, hogy a letöltések/keresések összeköthetők legyenek a látogatóval."""
+    ip = _client_ip(request)
+    ua = request.headers.get("User-Agent", "")
+    return hashlib.sha256(f"{ANALYTICS_SALT}|{ip}|{ua}".encode("utf-8")).hexdigest()[:16]
+
+
 @app.post("/api/v1/hit", tags=["analytics"])
 def hit(req: HitRequest, request: Request):
     """Egy oldalletöltés rögzítése. Publikus végpont (a látogatók hívják).
 
     Adatvédelem: nyers IP-t nem tárolunk. A látogató-azonosító egy stabil
     sóval képzett SHA-256 hash az (IP + User-Agent) párosból, csonkítva.
+    Visszaadja a létrejött rekord id-jét, hogy a kilépéskor küldött beacon
+    (idő az oldalon, görgetés) frissíteni tudja.
     """
     ip = _client_ip(request)
     ua = request.headers.get("User-Agent", "")
 
-    visitor_hash = hashlib.sha256(
-        f"{ANALYTICS_SALT}|{ip}|{ua}".encode("utf-8")
-    ).hexdigest()[:16]
-
+    visitor_hash = _visitor_hash(request)
     parsed = useragent.parse(ua)
     now = int(time.time())
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    handle_db.addVisit({
+    res = handle_db.addVisit({
         "timestamp_utc": now,
         "day": day,
         "path": (req.path or "/")[:200],
@@ -175,12 +200,41 @@ def hit(req: HitRequest, request: Request):
         "country": geo.country_of(ip),
         "browser": parsed["browser"],
         "os": parsed["os"],
+        "device_type": parsed.get("device_type"),
+        "language": (req.language or None) and req.language[:20],
+        "timezone": (req.timezone or None) and req.timezone[:64],
+        "connection_type": (req.connection_type or None) and req.connection_type[:20],
         "screen_w": req.screen_w,
         "screen_h": req.screen_h,
         "viewport_w": req.viewport_w,
         "viewport_h": req.viewport_h,
         "device_pixel_ratio": req.device_pixel_ratio,
         "is_bot": parsed["is_bot"],
+    })
+    return {"ok": True, "id": res.get("id")}
+
+
+@app.post("/api/v1/hit_update", tags=["analytics"])
+def hit_update(req: HitUpdateRequest):
+    """Elköteleződési adatok frissítése (kilépéskor küldött beacon)."""
+    ok = handle_db.updateVisit(
+        req.visit_id,
+        time_on_page_ms=req.time_on_page_ms,
+        scroll_depth=req.scroll_depth,
+        load_time_ms=req.load_time_ms,
+    )
+    return {"ok": ok}
+
+
+@app.post("/api/v1/event", tags=["analytics"])
+def event(req: EventRequest, request: Request):
+    """Egy kattintás-esemény rögzítése (publikus)."""
+    handle_db.addClickEvent({
+        "timestamp_utc": int(time.time()),
+        "day": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "visitor_hash": _visitor_hash(request),
+        "path": (req.path or "/")[:200],
+        "event": (req.event or "")[:64],
     })
     return {"ok": True}
 
@@ -375,9 +429,18 @@ def add_operator(newOperator:str):
     operators.sort()
 
 @app.get("/api/v1/generate_diploma", tags=["diploma"])
-def generate_diploma(callsign, lang="en"):    
+def generate_diploma(callsign, lang="en", request: Request = None):
     #print("---------- generate diploma ---------------")
     #handle_db.diplomaQslDownload(callsign, "generateDiploma")
+
+    # A publikus kereséskor (index.html) ez a végpont fut le -> rögzítjük a
+    # keresett hívójelet a látogatottsági statisztikához.
+    if request is not None and callsign:
+        try:
+            handle_db.addSearchEvent(callsign, _visitor_hash(request))
+        except Exception:
+            pass
+
     qsos = handle_db.query(callsign)
     print(qsos)
     qsos_unique = list(set([(i["band"], i["mode"]) for i in qsos]))
@@ -413,12 +476,13 @@ def generate_diploma(callsign, lang="en"):
                 }
 
 @app.get("/api/v1/download_diploma", tags=["diploma"])
-def download_diploma(callsign, lang="en"):
+def download_diploma(callsign, lang="en", request: Request = None):
     if "/" in callsign:
         callsign = callsign.replace("/", "_")
     diplomaPath = os.path.join(baseDir, "diplomas", f"diploma_{callsign.lower()}_{lang}.pdf")
     if os.path.exists(diplomaPath):
-        handle_db.diplomaDownload(callsign)
+        vh = _visitor_hash(request) if request is not None else None
+        handle_db.diplomaDownload(callsign, visitor_hash=vh)
         return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG24CCS.pdf")
     else:
         return {"error":"not exists"}
@@ -460,14 +524,15 @@ def generate_all_qsl():
     
 
 @app.get("/api/v1/download_qsl", tags=["qsl"])
-def downloaded_qsl(callsign, timestamp, fileNr):
+def downloaded_qsl(callsign, timestamp, fileNr, request: Request = None):
     #handle_db.diplomaQslDownload(callsign, "downloadQsl")
 
     if "/" in callsign:
         callsign = callsign.replace("/", "_")
     qslPath = os.path.join(baseDir, "qsls", f'qsl_{callsign}_{timestamp}.pdf')
     if os.path.exists(qslPath):
-        handle_db.qslDownload(callsign, timestamp)
+        vh = _visitor_hash(request) if request is not None else None
+        handle_db.qslDownload(callsign, timestamp, visitor_hash=vh)
         return FileResponse(qslPath, media_type='application/octet-stream',filename=f"{fileNr}.pdf")
     else:
         return {"error":"not exists"}

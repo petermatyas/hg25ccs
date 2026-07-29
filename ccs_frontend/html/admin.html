@@ -389,6 +389,22 @@
               </div></div>
           </div>
 
+          <!-- Elköteleződési átlagok -->
+          <div class="row row-cols-1 row-cols-md-3 g-2 my-2">
+              <div class="col"><div class="border rounded p-2 text-center">
+                  <div class="fs-5 fw-bold" id="v_avg_load">–</div>
+                  <div class="text-muted" style="font-size:0.85em;">Átlagos betöltési idő</div>
+              </div></div>
+              <div class="col"><div class="border rounded p-2 text-center">
+                  <div class="fs-5 fw-bold" id="v_avg_time">–</div>
+                  <div class="text-muted" style="font-size:0.85em;">Átlagos idő az oldalon</div>
+              </div></div>
+              <div class="col"><div class="border rounded p-2 text-center">
+                  <div class="fs-5 fw-bold" id="v_avg_scroll">–</div>
+                  <div class="text-muted" style="font-size:0.85em;">Átlagos görgetési mélység</div>
+              </div></div>
+          </div>
+
           <div class="row my-3">
               <div class="col-md-6">
                   <h5>Országok</h5>
@@ -442,10 +458,71 @@
 
           <div class="row my-3">
               <div class="col-md-6">
+                  <h5>Eszköztípus</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Típus</th><th>Megtekintés</th></tr></thead>
+                      <tbody id="v_device_types"></tbody>
+                  </table>
+              </div>
+              <div class="col-md-6">
+                  <h5>Nyelvek</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Nyelv</th><th>Megtekintés</th></tr></thead>
+                      <tbody id="v_languages"></tbody>
+                  </table>
+              </div>
+          </div>
+
+          <div class="row my-3">
+              <div class="col-md-6">
+                  <h5>Időzónák</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Időzóna</th><th>Megtekintés</th></tr></thead>
+                      <tbody id="v_timezones"></tbody>
+                  </table>
+              </div>
+              <div class="col-md-6">
+                  <h5>Kapcsolat típusa</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Típus</th><th>Megtekintés</th></tr></thead>
+                      <tbody id="v_connection_types"></tbody>
+                  </table>
+              </div>
+          </div>
+
+          <div class="row my-3">
+              <div class="col-md-6">
+                  <h5>Kattintás-események</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Esemény</th><th>Darab</th></tr></thead>
+                      <tbody id="v_clicks"></tbody>
+                  </table>
+              </div>
+              <div class="col-md-6">
+                  <h5>Keresett hívójelek</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>#</th><th>Hívójel</th><th>Keresés</th></tr></thead>
+                      <tbody id="v_searched"></tbody>
+                  </table>
+              </div>
+          </div>
+
+          <div class="row my-3">
+              <div class="col-md-6">
                   <h5>Napi bontás</h5>
                   <table class="table table-sm table-striped">
                       <thead><tr><th>Nap (UTC)</th><th>Megtekintés</th></tr></thead>
                       <tbody id="v_daily"></tbody>
+                  </table>
+              </div>
+          </div>
+
+          <div class="row my-3">
+              <div class="col-md-12">
+                  <h5>Diploma / QSL letöltések (látogatóval összekötve)</h5>
+                  <table class="table table-sm table-striped">
+                      <thead><tr><th>Idő</th><th>Típus</th><th>Hívójel</th><th>Ország</th><th>Látogató-hash</th></tr></thead>
+                      <tbody id="v_downloads"></tbody>
                   </table>
               </div>
           </div>

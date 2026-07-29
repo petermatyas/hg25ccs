@@ -69,5 +69,8 @@ networks:
   # útvonala, így a backend semmiképp nem érhető el a webről.
   ccs_internal:
     internal: true
-  # Publikus hálózat: csak a frontend nginx van rajta, ez fogadja a 80/443-at.
+  # Publikus (nem internal) bridge hálózat. A frontend nginx ezen fogadja a
+  # 80/443-at, a backend pedig ezen keresztül ér ki az internetre (GeoLite2
+  # web service). A backendnek nincs "ports:" kulcsa, így befelé továbbra sem
+  # érhető el a webről – csak kimenő forgalomra használja.
   ccs_public:

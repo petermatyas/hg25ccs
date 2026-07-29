@@ -102,18 +102,45 @@ function fillVisitStats() {
             set("v_returning", data.returning_views);
             set("v_returning_visitors", data.returning_visitors);
 
+            // Elköteleződési átlagok (olvasható formában).
+            const fmtMs = (ms) => (ms === null || ms === undefined) ? "–"
+                : (ms >= 1000 ? (ms / 1000).toFixed(1) + " s" : Math.round(ms) + " ms");
+            set("v_avg_load", fmtMs(data.avg_load_time_ms));
+            set("v_avg_time", fmtMs(data.avg_time_on_page_ms));
+            set("v_avg_scroll", (data.avg_scroll_depth === null || data.avg_scroll_depth === undefined)
+                ? "–" : Math.round(data.avg_scroll_depth) + " %");
+
             fillTopTable("v_countries", data.countries);
             fillTopTable("v_browsers", data.browsers);
             fillTopTable("v_systems", data.systems);
             fillTopTable("v_resolutions", data.resolutions);
             fillTopTable("v_pages", data.pages);
             fillTopTable("v_referrers", data.referrers);
+            fillTopTable("v_device_types", data.device_types);
+            fillTopTable("v_languages", data.languages);
+            fillTopTable("v_timezones", data.timezones);
+            fillTopTable("v_connection_types", data.connection_types);
+            fillTopTable("v_clicks", data.clicks);
+            fillTopTable("v_searched", data.searched_callsigns);
 
             const dailyBody = document.getElementById("v_daily");
             if (dailyBody) {
                 dailyBody.innerHTML = "";
                 (data.daily || []).forEach(d => {
                     dailyBody.innerHTML += `<tr><td>${d.day}</td><td>${d.count}</td></tr>`;
+                });
+            }
+
+            // Letöltések (látogatóval összekötve).
+            const dlBody = document.getElementById("v_downloads");
+            if (dlBody) {
+                dlBody.innerHTML = "";
+                (data.downloads || []).forEach(d => {
+                    const t = d.timestamp_utc ? timeConvert(d.timestamp_utc) : "";
+                    const kind = d.kind === "diploma" ? "Diploma" : "QSL";
+                    const country = d.country ? escapeHtml(d.country) : "–";
+                    const vh = d.visitor_hash ? escapeHtml(d.visitor_hash) : "–";
+                    dlBody.innerHTML += `<tr><td>${t}</td><td>${kind}</td><td>${escapeHtml(d.callsign || "")}</td><td>${country}</td><td><code>${vh}</code></td></tr>`;
                 });
             }
         })
