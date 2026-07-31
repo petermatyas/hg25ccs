@@ -4,6 +4,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import pytz
 import os
@@ -149,6 +150,14 @@ def _migrate_schema():
     conn = sqlite3.connect(databasePath)
     cur = conn.cursor()
 
+    # WAL napló: több párhuzamos olvasó + egy író jól megfér egymás mellett,
+    # ami a session-önkénti (rövid életű) írásoknál csökkenti a "database is
+    # locked" eséllyét. A beállítás perzisztens a DB fájlban.
+    try:
+        cur.execute("PRAGMA journal_mode=WAL")
+    except Exception:
+        pass
+
     def table_exists(name):
         row = cur.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (name,)
@@ -188,6 +197,27 @@ _migrate_schema()
 
 Session = sessionmaker(bind=engine)
 session = Session()
+
+
+@contextmanager
+def _db():
+    """Rövid életű, izolált session egy művelethez (thread-biztos).
+
+    A modul-szintű globális `session` egyetlen objektum, amit a FastAPI
+    threadpool több szála PÁRHUZAMOSAN használ. A gyakori analytics-írások
+    (/hit, /event) így versenyhelyzetbe kerülnek: egy elbukott flush
+    'megmérgezi' a közös session-t (PendingRollbackError), és onnantól minden
+    kérés elhal. Ezért az analytics- és letöltés-műveletek külön, friss
+    session-t kapnak, commit/rollback/close kezeléssel."""
+    s = Session()
+    try:
+        yield s
+        s.commit()
+    except Exception:
+        s.rollback()
+        raise
+    finally:
+        s.close()
 
 
 def getCurrentUtcTs():
@@ -319,15 +349,16 @@ def query(callsign):
         stopTs = int(dt_stop.replace(tzinfo=timezone.utc).timestamp())"""
 
     #q = session.query(Log).where(Log.callsign==callsign.upper()).where(Log.log_timestamp_utc >= startTs).where(Log.log_timestamp_utc <= stopTs)
-    q = session.query(Log).where(Log.callsign==callsign.upper())
-    
-    temp = list()
-    for i in q:
-        #print("7====", i.callsign, i.band, i.mode)
-        #temp.append([i.band, i.mode, i.log_timestamp_utc])
-        temp.append({"band":i.band, "mode":i.mode, "timestamp":i.log_timestamp_utc, "qth":i.qth, "rst_sent":i.rst_sent, "rst_received":i.rst_rec, 
-                     "local_operator":i.local_operator, "upload_timestamp_utc": i.upload_timestamp_utc, "uploaded_filename":i.uploaded_filename})
-    return temp
+    with _db() as s:
+        q = s.query(Log).where(Log.callsign==callsign.upper())
+
+        temp = list()
+        for i in q:
+            #print("7====", i.callsign, i.band, i.mode)
+            #temp.append([i.band, i.mode, i.log_timestamp_utc])
+            temp.append({"band":i.band, "mode":i.mode, "timestamp":i.log_timestamp_utc, "qth":i.qth, "rst_sent":i.rst_sent, "rst_received":i.rst_rec,
+                         "local_operator":i.local_operator, "upload_timestamp_utc": i.upload_timestamp_utc, "uploaded_filename":i.uploaded_filename})
+        return temp
 
 def queryByUpload(uploadTimestamp, filename):
     q = session.query(Log).where(Log.upload_timestamp_utc==uploadTimestamp and Log.uploaded_filename==filename)
@@ -404,36 +435,36 @@ def qsoListBandModeByCallsign(callsign):
     return res"""
 
 def diplomaDownload(callsign, visitor_hash=None):
-    aaa = DiplomaDownload(callsign=_canonCallsign(callsign),
-                          timestamp_utc=getCurrentUtcTs(),
-                          visitor_hash=visitor_hash)
-    session.add(aaa)
-    session.commit()
+    with _db() as s:
+        s.add(DiplomaDownload(callsign=_canonCallsign(callsign),
+                              timestamp_utc=getCurrentUtcTs(),
+                              visitor_hash=visitor_hash))
 
 def getDownloadedDiplomas():
-    q = session.query(DiplomaDownload).all()
-    res = [[i.timestamp_utc, i.callsign] for i in q]
-    return res
+    with _db() as s:
+        q = s.query(DiplomaDownload).all()
+        return [[i.timestamp_utc, i.callsign] for i in q]
 
 def _canonCallsign(callsign):
     return callsign.upper().replace("/", "_")
 
 def isDiplomaDownloaded(callsign):
     c = _canonCallsign(callsign)
-    return session.query(DiplomaDownload).where(DiplomaDownload.callsign == c).first() is not None
+    with _db() as s:
+        return s.query(DiplomaDownload).where(DiplomaDownload.callsign == c).first() is not None
 
 def qslDownload(callsign, qso_timestamp, visitor_hash=None):
-    row = QslDownload(callsign=_canonCallsign(callsign),
-                      qso_timestamp_utc=int(qso_timestamp),
-                      timestamp_utc=getCurrentUtcTs(),
-                      visitor_hash=visitor_hash)
-    session.add(row)
-    session.commit()
+    with _db() as s:
+        s.add(QslDownload(callsign=_canonCallsign(callsign),
+                          qso_timestamp_utc=int(qso_timestamp),
+                          timestamp_utc=getCurrentUtcTs(),
+                          visitor_hash=visitor_hash))
 
 def getDownloadedQslTimestamps(callsign):
     c = _canonCallsign(callsign)
-    q = session.query(QslDownload.qso_timestamp_utc).where(QslDownload.callsign == c).all()
-    return set(int(i[0]) for i in q)
+    with _db() as s:
+        q = s.query(QslDownload.qso_timestamp_utc).where(QslDownload.callsign == c).all()
+        return set(int(i[0]) for i in q)
 
 def activateBand(callsign, band, mode):
     aaa = ActiveBand(callsign = callsign,
@@ -486,16 +517,17 @@ def getActiveBandsHistory():
 # ---- Beállítások (kulcs-érték) ----
 
 def getSetting(key, default=None):
-    row = session.query(Setting).where(Setting.key == key).first()
-    return row.value if row is not None else default
+    with _db() as s:
+        row = s.query(Setting).where(Setting.key == key).first()
+        return row.value if row is not None else default
 
 def setSetting(key, value):
-    row = session.query(Setting).where(Setting.key == key).first()
-    if row is None:
-        session.add(Setting(key=key, value=str(value)))
-    else:
-        row.value = str(value)
-    session.commit()
+    with _db() as s:
+        row = s.query(Setting).where(Setting.key == key).first()
+        if row is None:
+            s.add(Setting(key=key, value=str(value)))
+        else:
+            row.value = str(value)
 
 # Az oldal (index.html-en a keresés) aktiválási állapota. Alapból inaktív:
 # amíg az admin nem aktiválja, az index.html keresés nem működik.
@@ -518,76 +550,77 @@ def addVisit(fields: dict):
     igaz, ha ezt a visitor_hasht már láttuk korábban.
     """
     visitor_hash = fields.get("visitor_hash")
-    seen_before = False
-    if visitor_hash:
-        seen_before = session.query(Visit.id) \
-            .where(Visit.visitor_hash == visitor_hash) \
-            .first() is not None
+    with _db() as s:
+        seen_before = False
+        if visitor_hash:
+            seen_before = s.query(Visit.id) \
+                .where(Visit.visitor_hash == visitor_hash) \
+                .first() is not None
 
-    v = Visit(
-        timestamp_utc=fields.get("timestamp_utc", getCurrentUtcTs()),
-        day=fields.get("day"),
-        path=fields.get("path"),
-        referrer=fields.get("referrer"),
-        visitor_hash=visitor_hash,
-        is_returning=1 if seen_before else 0,
-        country=fields.get("country"),
-        browser=fields.get("browser"),
-        os=fields.get("os"),
-        device_type=fields.get("device_type"),
-        language=fields.get("language"),
-        timezone=fields.get("timezone"),
-        connection_type=fields.get("connection_type"),
-        screen_w=fields.get("screen_w"),
-        screen_h=fields.get("screen_h"),
-        viewport_w=fields.get("viewport_w"),
-        viewport_h=fields.get("viewport_h"),
-        device_pixel_ratio=fields.get("device_pixel_ratio"),
-        is_bot=1 if fields.get("is_bot") else 0,
-    )
-    session.add(v)
-    session.commit()
-    return {"id": v.id, "is_returning": seen_before}
+        v = Visit(
+            timestamp_utc=fields.get("timestamp_utc", getCurrentUtcTs()),
+            day=fields.get("day"),
+            path=fields.get("path"),
+            referrer=fields.get("referrer"),
+            visitor_hash=visitor_hash,
+            is_returning=1 if seen_before else 0,
+            country=fields.get("country"),
+            browser=fields.get("browser"),
+            os=fields.get("os"),
+            device_type=fields.get("device_type"),
+            language=fields.get("language"),
+            timezone=fields.get("timezone"),
+            connection_type=fields.get("connection_type"),
+            screen_w=fields.get("screen_w"),
+            screen_h=fields.get("screen_h"),
+            viewport_w=fields.get("viewport_w"),
+            viewport_h=fields.get("viewport_h"),
+            device_pixel_ratio=fields.get("device_pixel_ratio"),
+            is_bot=1 if fields.get("is_bot") else 0,
+        )
+        s.add(v)
+        s.flush()  # az id-t a commit előtt megszerezzük
+        return {"id": v.id, "is_returning": seen_before}
 
 
 def updateVisit(visit_id, time_on_page_ms=None, scroll_depth=None, load_time_ms=None):
     """Egy meglévő látogatás elköteleződési adatainak frissítése (kilépéskor
     küldött beacon). Csak a megadott mezőket írja."""
-    row = session.query(Visit).where(Visit.id == visit_id).first()
-    if row is None:
-        return False
-    if time_on_page_ms is not None:
-        row.time_on_page_ms = int(time_on_page_ms)
-    if scroll_depth is not None:
-        row.scroll_depth = int(scroll_depth)
-    if load_time_ms is not None:
-        row.load_time_ms = int(load_time_ms)
-    session.commit()
-    return True
+    with _db() as s:
+        row = s.query(Visit).where(Visit.id == visit_id).first()
+        if row is None:
+            return False
+        if time_on_page_ms is not None:
+            row.time_on_page_ms = int(time_on_page_ms)
+        if scroll_depth is not None:
+            row.scroll_depth = int(scroll_depth)
+        if load_time_ms is not None:
+            row.load_time_ms = int(load_time_ms)
+        return True
 
 
 def addClickEvent(fields: dict):
     """Egy kattintás-esemény rögzítése."""
-    session.add(ClickEvent(
-        timestamp_utc=fields.get("timestamp_utc", getCurrentUtcTs()),
-        day=fields.get("day"),
-        visitor_hash=fields.get("visitor_hash"),
-        path=fields.get("path"),
-        event=fields.get("event"),
-    ))
-    session.commit()
+    with _db() as s:
+        s.add(ClickEvent(
+            timestamp_utc=fields.get("timestamp_utc", getCurrentUtcTs()),
+            day=fields.get("day"),
+            visitor_hash=fields.get("visitor_hash"),
+            path=fields.get("path"),
+            event=fields.get("event"),
+        ))
 
 
 def addSearchEvent(callsign, visitor_hash=None):
     """Egy publikus hívójel-keresés rögzítése."""
     from datetime import datetime as _dt, timezone as _tz
-    session.add(SearchEvent(
-        timestamp_utc=getCurrentUtcTs(),
-        day=_dt.now(_tz.utc).strftime("%Y-%m-%d"),
-        visitor_hash=visitor_hash,
-        callsign=(callsign or "").upper()[:32],
-    ))
-    session.commit()
+    with _db() as s:
+        s.add(SearchEvent(
+            timestamp_utc=getCurrentUtcTs(),
+            day=_dt.now(_tz.utc).strftime("%Y-%m-%d"),
+            visitor_hash=visitor_hash,
+            callsign=(callsign or "").upper()[:32],
+        ))
 
 
 def _visitTopCounts(column, base_query, limit=None):
@@ -604,112 +637,117 @@ def _visitTopCounts(column, base_query, limit=None):
 
 
 def getVisitStats(include_bots=False):
-    """Összesített látogatottsági statisztika az admin nézethez."""
-    base = session.query(Visit)
-    if not include_bots:
-        base = base.where(Visit.is_bot == 0)
+    """Összesített látogatottsági statisztika az admin nézethez.
 
-    total_views = base.count()
-    unique_visitors = base.with_entities(Visit.visitor_hash).distinct().count()
+    Friss, izolált session-t használ (_db), hogy lássa a más session-ök által
+    írt (analytics/letöltés) adatot – a közös session esetleg elavult
+    pillanatképet szolgálna ki."""
+    with _db() as s:
+        base = s.query(Visit)
+        if not include_bots:
+            base = base.where(Visit.is_bot == 0)
 
-    # Új vs. visszatérő: az adott oldalletöltés első alkalom volt-e az adott
-    # látogatótól. (is_returning=0 -> ekkor láttuk először.)
-    returning_views = base.where(Visit.is_returning == 1).count()
-    new_views = total_views - returning_views
+        total_views = base.count()
+        unique_visitors = base.with_entities(Visit.visitor_hash).distinct().count()
 
-    # Egyedi visszatérő látogatók száma (akiknek van legalább egy ismételt nézete).
-    returning_visitors = base.where(Visit.is_returning == 1) \
-        .with_entities(Visit.visitor_hash).distinct().count()
+        # Új vs. visszatérő: az adott oldalletöltés első alkalom volt-e az adott
+        # látogatótól. (is_returning=0 -> ekkor láttuk először.)
+        returning_views = base.where(Visit.is_returning == 1).count()
+        new_views = total_views - returning_views
 
-    countries = _visitTopCounts(Visit.country, base)
-    browsers = _visitTopCounts(Visit.browser, base)
-    systems = _visitTopCounts(Visit.os, base)
-    pages = _visitTopCounts(Visit.path, base, limit=20)
-    referrers = _visitTopCounts(Visit.referrer, base, limit=20)
-    languages = _visitTopCounts(Visit.language, base, limit=20)
-    timezones = _visitTopCounts(Visit.timezone, base, limit=20)
-    device_types = _visitTopCounts(Visit.device_type, base)
-    connection_types = _visitTopCounts(Visit.connection_type, base)
+        # Egyedi visszatérő látogatók száma (akiknek van legalább egy ismételt nézete).
+        returning_visitors = base.where(Visit.is_returning == 1) \
+            .with_entities(Visit.visitor_hash).distinct().count()
 
-    # Átlagok (elköteleződés). A None értékeket a func.avg kihagyja.
-    def _avg(col):
-        v = base.with_entities(func.avg(col)).scalar()
-        return round(v, 1) if v is not None else None
+        countries = _visitTopCounts(Visit.country, base)
+        browsers = _visitTopCounts(Visit.browser, base)
+        systems = _visitTopCounts(Visit.os, base)
+        pages = _visitTopCounts(Visit.path, base, limit=20)
+        referrers = _visitTopCounts(Visit.referrer, base, limit=20)
+        languages = _visitTopCounts(Visit.language, base, limit=20)
+        timezones = _visitTopCounts(Visit.timezone, base, limit=20)
+        device_types = _visitTopCounts(Visit.device_type, base)
+        connection_types = _visitTopCounts(Visit.connection_type, base)
 
-    avg_load_time_ms = _avg(Visit.load_time_ms)
-    avg_time_on_page_ms = _avg(Visit.time_on_page_ms)
-    avg_scroll_depth = _avg(Visit.scroll_depth)
+        # Átlagok (elköteleződés). A None értékeket a func.avg kihagyja.
+        def _avg(col):
+            v = base.with_entities(func.avg(col)).scalar()
+            return round(v, 1) if v is not None else None
 
-    # Felbontás "SZÉLESSÉGxMAGASSÁG" formában.
-    res_rows = base.where(Visit.screen_w.isnot(None)) \
-        .with_entities(Visit.screen_w, Visit.screen_h, func.count(Visit.id).label("cnt")) \
-        .group_by(Visit.screen_w, Visit.screen_h) \
-        .order_by(func.count(Visit.id).desc()).all()
-    resolutions = [{"key": f"{r[0]}x{r[1]}", "count": r[2]} for r in res_rows]
+        avg_load_time_ms = _avg(Visit.load_time_ms)
+        avg_time_on_page_ms = _avg(Visit.time_on_page_ms)
+        avg_scroll_depth = _avg(Visit.scroll_depth)
 
-    # Napi bontás (növekvő időrend).
-    day_rows = base.with_entities(Visit.day, func.count(Visit.id).label("cnt")) \
-        .group_by(Visit.day).order_by(Visit.day.asc()).all()
-    daily = [{"day": r[0], "count": r[1]} for r in day_rows]
+        # Felbontás "SZÉLESSÉGxMAGASSÁG" formában.
+        res_rows = base.where(Visit.screen_w.isnot(None)) \
+            .with_entities(Visit.screen_w, Visit.screen_h, func.count(Visit.id).label("cnt")) \
+            .group_by(Visit.screen_w, Visit.screen_h) \
+            .order_by(func.count(Visit.id).desc()).all()
+        resolutions = [{"key": f"{r[0]}x{r[1]}", "count": r[2]} for r in res_rows]
 
-    # Kattintás-események (esemény-címke szerint).
-    click_rows = session.query(ClickEvent.event, func.count(ClickEvent.id).label("cnt")) \
-        .group_by(ClickEvent.event).order_by(func.count(ClickEvent.id).desc()).all()
-    clicks = [{"key": (r[0] or "Ismeretlen"), "count": r[1]} for r in click_rows]
+        # Napi bontás (növekvő időrend).
+        day_rows = base.with_entities(Visit.day, func.count(Visit.id).label("cnt")) \
+            .group_by(Visit.day).order_by(Visit.day.asc()).all()
+        daily = [{"day": r[0], "count": r[1]} for r in day_rows]
 
-    # Keresett hívójelek (leggyakoribb elöl).
-    search_rows = session.query(SearchEvent.callsign, func.count(SearchEvent.id).label("cnt")) \
-        .group_by(SearchEvent.callsign).order_by(func.count(SearchEvent.id).desc()).limit(50).all()
-    searched_callsigns = [{"key": (r[0] or "?"), "count": r[1]} for r in search_rows]
+        # Kattintás-események (esemény-címke szerint).
+        click_rows = s.query(ClickEvent.event, func.count(ClickEvent.id).label("cnt")) \
+            .group_by(ClickEvent.event).order_by(func.count(ClickEvent.id).desc()).all()
+        clicks = [{"key": (r[0] or "Ismeretlen"), "count": r[1]} for r in click_rows]
 
-    # Diploma/QSL letöltések összekötve a látogatóval (legutóbbiak elöl).
-    def _downloads(model, kind):
-        rows = session.query(model).order_by(model.timestamp_utc.desc()).limit(50).all()
-        out = []
-        for r in rows:
-            vh = getattr(r, "visitor_hash", None)
-            country = None
-            if vh:
-                vrow = session.query(Visit.country).where(Visit.visitor_hash == vh) \
-                    .order_by(Visit.timestamp_utc.desc()).first()
-                country = vrow[0] if vrow else None
-            out.append({
-                "kind": kind,
-                "callsign": r.callsign,
-                "timestamp_utc": r.timestamp_utc,
-                "visitor_hash": vh,
-                "country": country,
-            })
-        return out
+        # Keresett hívójelek (leggyakoribb elöl).
+        search_rows = s.query(SearchEvent.callsign, func.count(SearchEvent.id).label("cnt")) \
+            .group_by(SearchEvent.callsign).order_by(func.count(SearchEvent.id).desc()).limit(50).all()
+        searched_callsigns = [{"key": (r[0] or "?"), "count": r[1]} for r in search_rows]
 
-    downloads = _downloads(DiplomaDownload, "diploma") + _downloads(QslDownload, "qsl")
-    downloads.sort(key=lambda d: d["timestamp_utc"] or 0, reverse=True)
-    downloads = downloads[:50]
+        # Diploma/QSL letöltések összekötve a látogatóval (legutóbbiak elöl).
+        def _downloads(model, kind):
+            rows = s.query(model).order_by(model.timestamp_utc.desc()).limit(50).all()
+            out = []
+            for r in rows:
+                vh = getattr(r, "visitor_hash", None)
+                country = None
+                if vh:
+                    vrow = s.query(Visit.country).where(Visit.visitor_hash == vh) \
+                        .order_by(Visit.timestamp_utc.desc()).first()
+                    country = vrow[0] if vrow else None
+                out.append({
+                    "kind": kind,
+                    "callsign": r.callsign,
+                    "timestamp_utc": r.timestamp_utc,
+                    "visitor_hash": vh,
+                    "country": country,
+                })
+            return out
 
-    return {
-        "total_views": total_views,
-        "unique_visitors": unique_visitors,
-        "new_views": new_views,
-        "returning_views": returning_views,
-        "returning_visitors": returning_visitors,
-        "avg_load_time_ms": avg_load_time_ms,
-        "avg_time_on_page_ms": avg_time_on_page_ms,
-        "avg_scroll_depth": avg_scroll_depth,
-        "countries": countries,
-        "browsers": browsers,
-        "systems": systems,
-        "device_types": device_types,
-        "languages": languages,
-        "timezones": timezones,
-        "connection_types": connection_types,
-        "resolutions": resolutions,
-        "pages": pages,
-        "referrers": referrers,
-        "clicks": clicks,
-        "searched_callsigns": searched_callsigns,
-        "downloads": downloads,
-        "daily": daily,
-    }
+        downloads = _downloads(DiplomaDownload, "diploma") + _downloads(QslDownload, "qsl")
+        downloads.sort(key=lambda d: d["timestamp_utc"] or 0, reverse=True)
+        downloads = downloads[:50]
+
+        return {
+            "total_views": total_views,
+            "unique_visitors": unique_visitors,
+            "new_views": new_views,
+            "returning_views": returning_views,
+            "returning_visitors": returning_visitors,
+            "avg_load_time_ms": avg_load_time_ms,
+            "avg_time_on_page_ms": avg_time_on_page_ms,
+            "avg_scroll_depth": avg_scroll_depth,
+            "countries": countries,
+            "browsers": browsers,
+            "systems": systems,
+            "device_types": device_types,
+            "languages": languages,
+            "timezones": timezones,
+            "connection_types": connection_types,
+            "resolutions": resolutions,
+            "pages": pages,
+            "referrers": referrers,
+            "clicks": clicks,
+            "searched_callsigns": searched_callsigns,
+            "downloads": downloads,
+            "daily": daily,
+        }
 
 
 
