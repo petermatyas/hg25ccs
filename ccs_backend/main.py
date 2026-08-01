@@ -262,6 +262,7 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     name = file.filename.replace("."+extension, "")
 
     logDir = os.path.join(baseDir, "logs")
+    os.makedirs(logDir, exist_ok=True)
     fileLocation = os.path.join(logDir, f"{name}_{ts}.{extension}")
     #print("fileLocation: ", fileLocation)
     #fileType = file.filename
@@ -300,7 +301,7 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     handle_db.readLogs()
 
 
-    return {"info": f"file '{file.filename}' saved at '{fileLocation}'"}
+    return {"info": f"file '{file.filename}' saved at '{fileLocation}'", "saved_path": fileLocation}
 
 def _uploaded_log_dir() -> str:
     return os.path.join(baseDir, "logs")
