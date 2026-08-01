@@ -3,7 +3,17 @@ $(function() {
     // A headert az admin.js tölti be egyszer (az admin.html mindhárom
     // feladat-JS-t egy oldalon tölti); itt nem duplikáljuk.
     const btn = document.getElementById("callsignQueryBtnId");
+    const input = document.getElementById("callsignId");
     if (btn) btn.addEventListener("click", queryCallsign);
+    if (input) {
+        input.addEventListener("keydown", (evt) => {
+            if (evt.key === "Enter" || evt.code === "Enter") {
+                evt.preventDefault();
+                evt.stopPropagation();
+                queryCallsign();
+            }
+        });
+    }
 });
 
 function timeConvert(ts) {
