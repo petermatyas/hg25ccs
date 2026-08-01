@@ -263,7 +263,8 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
 
     logDir = os.path.join(baseDir, "logs")
     os.makedirs(logDir, exist_ok=True)
-    fileLocation = os.path.join(logDir, f"{name}_{ts}.{extension}")
+    safe_name = f"{name}_{ts}.{extension}".replace("/", "_").replace("\\", "_")
+    fileLocation = os.path.join(logDir, safe_name)
     #print("fileLocation: ", fileLocation)
     #fileType = file.filename
     #print("fileType: ", fileType)
@@ -301,45 +302,94 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     handle_db.readLogs()
 
 
-    return {"info": f"file '{file.filename}' saved at '{fileLocation}'", "saved_path": fileLocation}
+    return {
+        "info": f"file '{file.filename}' saved at '{fileLocation}'",
+        "saved_path": fileLocation,
+        "saved_filename": os.path.basename(fileLocation),
+    }
 
 def _uploaded_log_dir() -> str:
     return os.path.join(baseDir, "logs")
 
 
 def _find_uploaded_log_path(filename: str, upload_timestamp: Optional[int] = None) -> Optional[str]:
-    safe_name = os.path.basename(filename)
-    if not safe_name or safe_name != filename:
+    safe_name = os.path.basename(filename or "").strip()
+    if not safe_name:
         return None
 
     log_dir = _uploaded_log_dir()
     if not os.path.isdir(log_dir):
         return None
 
-    candidates = [safe_name]
-    if upload_timestamp is not None:
-        stem, ext = os.path.splitext(safe_name)
-        candidates.append(f"{stem}_{upload_timestamp}{ext}")
-        candidates.append(f"{safe_name}_{upload_timestamp}")
+    def is_safe_path(path: str) -> bool:
+        try:
+            real_dir = os.path.realpath(log_dir)
+            real_path = os.path.realpath(path)
+            return os.path.commonpath([real_dir, real_path]) == real_dir
+        except ValueError:
+            return False
 
+    def candidate_paths_for(name: str) -> list[str]:
+        base = os.path.basename(name or "")
+        stem, ext = os.path.splitext(base)
+        names = [base]
+        lower_names = {base.lower()}
+        if ext:
+            names.extend([f"{stem}_{upload_timestamp}{ext}" if upload_timestamp is not None else None,
+                          f"{base}_{upload_timestamp}" if upload_timestamp is not None else None,
+                          f"{stem}_{upload_timestamp}" if upload_timestamp is not None else None])
+        else:
+            names.extend([f"{stem}_{upload_timestamp}" if upload_timestamp is not None else None])
+        names = [n for n in names if n]
+        return names + [n.lower() for n in names if n.lower() not in lower_names]
+
+    candidates = candidate_paths_for(safe_name)
     for candidate in candidates:
         path = os.path.join(log_dir, candidate)
-        if not os.path.isfile(path):
-            continue
-        real_dir = os.path.realpath(log_dir)
-        real_path = os.path.realpath(path)
-        if os.path.commonpath([real_dir, real_path]) == real_dir:
+        if os.path.isfile(path) and is_safe_path(path):
             return path
 
-    stem, ext = os.path.splitext(safe_name)
-    for entry in sorted(os.listdir(log_dir)):
-        if entry.startswith(f"{stem}_") and os.path.splitext(entry)[1].lower() == ext.lower():
+    matching_paths = []
+    normalized_stem = os.path.splitext(safe_name)[0].lower()
+    normalized_ext = os.path.splitext(safe_name)[1].lower()
+
+    if upload_timestamp is not None:
+        timestamp_suffix = f"_{upload_timestamp}"
+        for entry in sorted(os.listdir(log_dir)):
             path = os.path.join(log_dir, entry)
-            if os.path.isfile(path):
-                real_dir = os.path.realpath(log_dir)
-                real_path = os.path.realpath(path)
-                if os.path.commonpath([real_dir, real_path]) == real_dir:
-                    return path
+            if os.path.isfile(path) and is_safe_path(path):
+                entry_lower = entry.lower()
+                if entry_lower.endswith(timestamp_suffix.lower()):
+                    matching_paths.append((os.path.getmtime(path), path))
+
+    for entry in sorted(os.listdir(log_dir)):
+        path = os.path.join(log_dir, entry)
+        if not os.path.isfile(path) or not is_safe_path(path):
+            continue
+
+        entry_lower = entry.lower()
+        entry_stem, entry_ext = os.path.splitext(entry)
+        entry_stem_lower = entry_stem.lower()
+        entry_ext_lower = entry_ext.lower()
+
+        if entry_lower == safe_name.lower():
+            matching_paths.append((os.path.getmtime(path), path))
+            continue
+
+        if upload_timestamp is not None and entry_lower == f"{safe_name.lower()}_{upload_timestamp}":
+            matching_paths.append((os.path.getmtime(path), path))
+            continue
+
+        if normalized_ext:
+            if entry_stem_lower.startswith(normalized_stem) and entry_ext_lower == normalized_ext:
+                matching_paths.append((os.path.getmtime(path), path))
+        else:
+            if entry_stem_lower.startswith(normalized_stem):
+                matching_paths.append((os.path.getmtime(path), path))
+
+    if matching_paths:
+        matching_paths.sort(key=lambda item: item[0], reverse=True)
+        return matching_paths[0][1]
 
     return None
 
