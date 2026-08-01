@@ -50,7 +50,9 @@ baseDir = os.path.dirname(os.path.realpath(__file__))
 
 bands     = ["70cm", "2m", "4m", "6m", "10m", "12m", "15m", "17m", "20m", "30m", "40m", "60m", "80m", "160m"]
 modes     = ["CW", "SSB", "FM", "DIGI"]
-operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA"]
+operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA", "HA1TIB"]
+
+
 
 extraDiplomaList = []
 

@@ -5,6 +5,7 @@
 // ellenőrzi a token érvényességét, és csak utána tölti be az admin tartalmat.
 
 const CCS_TOKEN_KEY = "ccs_admin_token";
+const CCS_USERNAME_KEY = "ccs_admin_username";
 
 function ccsGetToken() {
     return localStorage.getItem(CCS_TOKEN_KEY) || "";
@@ -14,6 +15,18 @@ function ccsSetToken(t) {
 }
 function ccsClearToken() {
     localStorage.removeItem(CCS_TOKEN_KEY);
+    localStorage.removeItem(CCS_USERNAME_KEY);
+}
+
+function ccsGetUsername() {
+    return localStorage.getItem(CCS_USERNAME_KEY) || "";
+}
+function ccsSetUsername(u) {
+    if (u) {
+        localStorage.setItem(CCS_USERNAME_KEY, u);
+    } else {
+        localStorage.removeItem(CCS_USERNAME_KEY);
+    }
 }
 
 function ccsApiBase() {
@@ -96,6 +109,7 @@ function ccsLogin(username, password) {
         return resp.json();
     }).then(function (data) {
         ccsSetToken(data.token);
+        ccsSetUsername(data.username || "");
         return data;
     });
 }
@@ -110,6 +124,10 @@ function ccsInitGate() {
     fetch(`${ccsApiBase()}/api/v1/me`)
         .then(function (resp) {
             if (!resp.ok) throw new Error("invalid");
+            return resp.json();
+        })
+        .then(function (data) {
+            ccsSetUsername(data.username || "");
             ccsShowAdmin();
             ccsRunAuthenticated();
         })

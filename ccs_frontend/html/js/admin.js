@@ -205,14 +205,32 @@ function fillModes() {
 }
 
 function fillOps() {
+    const operatorSelect = document.getElementById("operatorSelect");
+    if (!operatorSelect) return;
+
     //const url = `${HOST}:${BACKENDPORT}/operators`;
     const url = `${PROTO}${HOST}${BACKENDPORT}/api/v1/operators`
     fetch(url)
     .then(function(response) {return response.json()})
     .then(function(operatorArr) {
+        operatorSelect.innerHTML = '<option value="válassz">válassz</option>';
+
+        const loggedUsername = String(ccsGetUsername() || "").trim().toLowerCase();
+        let matchedOperator = null;
+
         for (var i=0; i<operatorArr.length; i++) {
-            let operator = operatorArr[i]
-            document.getElementById("operatorSelect").innerHTML += `<option value="${operator}">${operator}</option>`
+            let operator = String(operatorArr[i]);
+            operatorSelect.innerHTML += `<option value="${operator}">${operator}</option>`;
+
+            if (!matchedOperator && operator.trim().toLowerCase() === loggedUsername) {
+                matchedOperator = operator;
+            }
+        }
+
+        if (matchedOperator) {
+            operatorSelect.value = matchedOperator;
+        } else {
+            operatorSelect.value = "válassz";
         }
     })
 }
