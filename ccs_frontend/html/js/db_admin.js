@@ -116,7 +116,32 @@ function renderUploadedFiles(files) {
 function loadUploadedFiles() {
     fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/uploaded_files`)
         .then(r => r.json())
-        .then(files => renderUploadedFiles(files || []))
+        .then(files => {
+            const normalized = (files || []).map((file) => {
+                if (file && typeof file === "object" && "filename" in file) return file;
+                if (Array.isArray(file) && file.length >= 2) {
+                    return { filename: file[1], size_bytes: 0, modified_at: file[0] };
+                }
+                return null;
+            }).filter(Boolean);
+
+            if (normalized.length) {
+                renderUploadedFiles(normalized);
+                return;
+            }
+
+            return fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/log_uploads`)
+                .then(r => r.json())
+                .then(uploadRows => {
+                    const fallback = (uploadRows || []).map((row) => {
+                        if (Array.isArray(row) && row.length >= 2) {
+                            return { filename: row[1], size_bytes: 0, modified_at: row[0] };
+                        }
+                        return null;
+                    }).filter(Boolean);
+                    renderUploadedFiles(fallback);
+                });
+        })
         .catch(err => {
             const tbody = document.getElementById("uploadedFilesTableBody");
             if (tbody) {
@@ -134,6 +159,9 @@ function downloadUploadedFile(filename) {
 function bindDbAdmin() {
     // 0) Oldal aktiválása
     const siteToggle = document.getElementById("siteActiveToggle");
+    if (typeof loadUploadedFiles === "function" && document.getElementById("uploadedFilesTableBody")) {
+        loadUploadedFiles();
+    }
     if (siteToggle) {
         loadSiteActive();
         siteToggle.addEventListener("change", function () {

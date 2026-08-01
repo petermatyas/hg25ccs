@@ -336,6 +336,9 @@ function initAdmin() {
     fillModes();
     fillOps();
     fillLogUploadsSelect();
+    if (typeof loadUploadedFiles === "function") {
+        loadUploadedFiles();
+    }
 }
 
 

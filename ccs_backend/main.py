@@ -306,21 +306,47 @@ def _uploaded_log_dir() -> str:
     return os.path.join(baseDir, "logs")
 
 
-def _uploaded_log_path(filename: str) -> str:
+def _find_uploaded_log_path(filename: str, upload_timestamp: Optional[int] = None) -> Optional[str]:
     safe_name = os.path.basename(filename)
     if not safe_name or safe_name != filename:
-        raise HTTPException(status_code=400, detail="Érvénytelen fájlnév")
+        return None
 
     log_dir = _uploaded_log_dir()
-    path = os.path.join(log_dir, safe_name)
-    if not os.path.isfile(path):
+    if not os.path.isdir(log_dir):
+        return None
+
+    candidates = [safe_name]
+    if upload_timestamp is not None:
+        stem, ext = os.path.splitext(safe_name)
+        candidates.append(f"{stem}_{upload_timestamp}{ext}")
+        candidates.append(f"{safe_name}_{upload_timestamp}")
+
+    for candidate in candidates:
+        path = os.path.join(log_dir, candidate)
+        if not os.path.isfile(path):
+            continue
+        real_dir = os.path.realpath(log_dir)
+        real_path = os.path.realpath(path)
+        if os.path.commonpath([real_dir, real_path]) == real_dir:
+            return path
+
+    stem, ext = os.path.splitext(safe_name)
+    for entry in sorted(os.listdir(log_dir)):
+        if entry.startswith(f"{stem}_") and os.path.splitext(entry)[1].lower() == ext.lower():
+            path = os.path.join(log_dir, entry)
+            if os.path.isfile(path):
+                real_dir = os.path.realpath(log_dir)
+                real_path = os.path.realpath(path)
+                if os.path.commonpath([real_dir, real_path]) == real_dir:
+                    return path
+
+    return None
+
+
+def _uploaded_log_path(filename: str, upload_timestamp: Optional[int] = None) -> str:
+    path = _find_uploaded_log_path(filename, upload_timestamp)
+    if path is None:
         raise HTTPException(status_code=404, detail="A fájl nem található")
-
-    real_dir = os.path.realpath(log_dir)
-    real_path = os.path.realpath(path)
-    if os.path.commonpath([real_dir, real_path]) != real_dir:
-        raise HTTPException(status_code=400, detail="Érvénytelen fájlnév")
-
     return path
 
 
@@ -331,11 +357,36 @@ def getUploadTs():
 
 @app.get("/api/v1/uploaded_files", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def list_uploaded_files():
+    files = []
+    seen_names = set()
+
+    for upload_ts, uploaded_filename in handle_db.getUploads():
+        if uploaded_filename in seen_names:
+            continue
+        seen_names.add(uploaded_filename)
+
+        path = _find_uploaded_log_path(uploaded_filename, upload_ts)
+        if path is not None:
+            stat = os.stat(path)
+            files.append({
+                "filename": uploaded_filename,
+                "size_bytes": stat.st_size,
+                "modified_at": int(stat.st_mtime),
+            })
+        else:
+            files.append({
+                "filename": uploaded_filename,
+                "size_bytes": 0,
+                "modified_at": 0,
+            })
+
+    if files:
+        return files
+
     log_dir = _uploaded_log_dir()
     if not os.path.isdir(log_dir):
         return []
 
-    files = []
     for name in sorted(os.listdir(log_dir)):
         path = os.path.join(log_dir, name)
         if not os.path.isfile(path):
@@ -350,8 +401,8 @@ def list_uploaded_files():
 
 
 @app.get("/api/v1/download_uploaded_file", tags=["log"], dependencies=[Depends(auth.require_auth)])
-def download_uploaded_file(filename: str):
-    path = _uploaded_log_path(filename)
+def download_uploaded_file(filename: str, upload_timestamp: Optional[int] = None):
+    path = _uploaded_log_path(filename, upload_timestamp)
     return FileResponse(path, media_type="application/octet-stream", filename=os.path.basename(path))
 
 """@app.get("/last_logs")
