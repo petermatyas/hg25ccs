@@ -163,7 +163,10 @@ function loadUploadedFiles() {
 
 function downloadUploadedFile(filename) {
     if (!filename) return;
-    downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_uploaded_file?filename=${encodeURIComponent(filename)}`, filename);
+    downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_uploaded_file?filename=${encodeURIComponent(filename)}`, filename)
+        .catch(() => {
+            dbMsg(`A fájl letöltése nem sikerült: ${filename}`, true);
+        });
 }
 
 function bindDbAdmin() {

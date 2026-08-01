@@ -402,7 +402,23 @@ def list_uploaded_files():
 
 @app.get("/api/v1/download_uploaded_file", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def download_uploaded_file(filename: str, upload_timestamp: Optional[int] = None):
-    path = _uploaded_log_path(filename, upload_timestamp)
+    try:
+        path = _uploaded_log_path(filename, upload_timestamp)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+        uploads = handle_db.getUploads()
+        matching = None
+        for ts, uploaded_filename in uploads:
+            if uploaded_filename == filename:
+                matching = (ts, uploaded_filename)
+                break
+        if matching is None:
+            raise
+        path = _find_uploaded_log_path(filename, matching[0])
+        if path is None:
+            raise HTTPException(status_code=404, detail="A fájl nem található")
+
     return FileResponse(path, media_type="application/octet-stream", filename=os.path.basename(path))
 
 """@app.get("/last_logs")
