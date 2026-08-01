@@ -50,8 +50,7 @@ baseDir = os.path.dirname(os.path.realpath(__file__))
 
 bands     = ["70cm", "2m", "4m", "6m", "10m", "12m", "15m", "17m", "20m", "30m", "40m", "60m", "80m", "160m"]
 modes     = ["CW", "SSB", "FM", "DIGI"]
-operators = ["HA1LS", "HA1MP", "HA1NB", "HA1NBS", "HA1WD", "HA1YA", "HA1WA", "HA1TIB"]
-
+operators = auth.get_usernames()
 
 
 extraDiplomaList = []
@@ -63,7 +62,7 @@ extraDiplomaList = []
 ANALYTICS_SALT = os.environ.get("CCS_ANALYTICS_SALT", "change-this-ccs-analytics-salt")
 
 modes.sort()
-operators.sort()
+operators.sort(key=lambda value: value.lower())
 
 # A futáshoz szükséges könyvtárak létrehozása, ha még nem léteznek.
 # (A log-feltöltés a "logs", a diploma-generálás a "diplomas" mappába ír.)
@@ -423,7 +422,7 @@ def add_mode(newMode:str):
 
 @app.get("/api/v1/operators", tags=["operator"], dependencies=[Depends(auth.require_auth)])
 def get_operators():
-    return operators
+    return sorted(auth.get_usernames(), key=lambda value: value.lower())
 
 @app.post("/api/v1/operator", tags=["operator"], dependencies=[Depends(auth.require_auth)])
 def add_operator(newOperator:str):

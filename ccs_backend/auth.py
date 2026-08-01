@@ -44,6 +44,23 @@ def _load_users():
     return users
 
 
+def get_usernames():
+    """A users.json-ból származó felhasználónevek listája."""
+    if not os.path.exists(USERS_FILE):
+        return []
+
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    usernames = []
+    for entry in data.get("users", []):
+        username = entry.get("username")
+        if username is not None:
+            usernames.append(str(username).strip())
+
+    return sorted(usernames, key=lambda value: value.lower())
+
+
 _USERS = _load_users()
 
 
