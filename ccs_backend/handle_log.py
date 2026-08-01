@@ -274,7 +274,7 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     """
     https://www.adif.org/100/adif_100.htm
     """
-
+    
     modeDict = {"mfsk":"ft4"}
 
     with open(filePath, "r", encoding="ISO-8859-1") as file:
@@ -285,9 +285,14 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     except:
         local_operator_name = "error"
 
-    print("local_operator_name", local_operator_name)
-    logs = re.findall("<.+<eor>", content.lower())
+    # ha külön sorba kerül minden
+    content = content.replace("\n", "")
+    content = content.replace("<EOR>", "<EOR>\n")
+    content = content.replace("<eor>", "<eor>\n")
 
+    #print("local_operator_name", local_operator_name)
+    logs = re.findall("<.+<eor>", content.lower())
+    print("logs: ", len(logs))
     res = list()
     for i in logs:
         #print("adif: ", i)
@@ -352,11 +357,11 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
         except:
             rst_rec = "error"
 
-        #try:
-        #    local_operator_station = re.findall("station_callsign:([0-9]+>)([a-z0-9]+)", i.lower())[0][1]
-        #    print("local_operator_station", local_operator_station)
-        #except:
-        #    local_operator_station = "error"
+        try:
+            local_operator_station = re.findall("station_callsign:([0-9]+>)([a-z0-9]+)", i.lower())[0][1]
+            print("local_operator_station", local_operator_station)
+        except:
+            local_operator_station = "error"
 
         try:
             local_operator_operator = re.findall("operator:([0-9]+>)([a-z0-9/]+)", i.lower())[0][1]
@@ -391,13 +396,12 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
                     "local_operator":local_operator
                     })
         #print(callsign, band, mode)
-    
+
     return res
 
 
 def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     extension = filePath.split(".")[-1]
-
     if extension.lower() in ["edi"]:
         logLines = process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
     elif extension.lower() in ["adi", "adif"]:
@@ -421,7 +425,7 @@ if __name__ == "__main__":
     #    print(i)
     
 
-    path = "/home/ha1mp/Projektek/hg1ccs/backend/Test_logok/00_test.CBR"
+    path = "/home/ha1mp/Projektek/hg25ccs/ccs_backend/HA1MP-20260801-1936.adi"
     for i in process(path, "00", 0):
         print(i)
         #pass
