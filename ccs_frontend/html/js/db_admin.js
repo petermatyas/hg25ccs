@@ -21,7 +21,7 @@ function tsString() {
 // a választ blobként töltjük le (a sima <a href> nem küldene tokent).
 function downloadWithAuth(url, filename) {
     dbMsg("Letöltés folyamatban...");
-    fetch(url)
+    return fetch(url)
         .then(resp => {
             if (!resp.ok) throw new Error("HTTP " + resp.status);
             return resp.blob();
@@ -37,7 +37,10 @@ function downloadWithAuth(url, filename) {
             URL.revokeObjectURL(objUrl);
             dbMsg("Letöltés kész: " + filename);
         })
-        .catch(err => dbMsg("Hiba a letöltésnél: " + err.message, true));
+        .catch(err => {
+            dbMsg("Hiba a letöltésnél: " + err.message, true);
+            throw err;
+        });
 }
 
 // Az oldal aktiválási állapotának megjelenítése a kapcsolón és a felirat.
