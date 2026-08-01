@@ -43,7 +43,7 @@ def generate(callsign, out_path, lang="en"):
 
 def generate_fpdf(callsign, out_path, lang="en"):
 
-    backgroundImg = os.path.join(baseDir, "raw_diploma", "diploma.jpg") 
+    backgroundImg = os.path.join(baseDir, "raw_diploma", "HG25CCS_Diploma.png") 
     #print("backgroundImg", backgroundImg)
 
     if "_" in callsign:
@@ -63,7 +63,7 @@ def generate_fpdf(callsign, out_path, lang="en"):
     strWidth = pdf.get_string_width(callsign)
     print("strWidth", strWidth)
 
-    pdf.set_xy(W/2-strWidth/2, 22)
+    pdf.set_xy(W/2-strWidth/2, 25)
     pdf.cell(0, 0, callsign.upper())
 
     pdf.set_title("HG25CCS")
@@ -122,7 +122,7 @@ def generate_charset_preview(out_path, font_size=80, cols=8):
 
 
 if __name__ == "__main__":
-    """import time
+    import time
 
     '''startTime = time.time()
     generate("ha1mp", "./test_pil.pdf", "en")
@@ -131,6 +131,6 @@ if __name__ == "__main__":
 
     startTime = time.time()
     generate_fpdf("ha1nbs/p", "./tmp/test_diploma.pdf", "en")
-    print("time: ", time.time() - startTime)"""
+    print("time: ", time.time() - startTime)
 
-    generate_charset_preview("./tmp/font.pdf", font_size=80, cols=8)
+    #generate_charset_preview("./tmp/font.pdf", font_size=80, cols=8)
