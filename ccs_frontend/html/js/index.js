@@ -66,13 +66,24 @@ if (CCS_ENFORCE_ACTIVATION) {
         .catch(() => { ccsSiteActive = false; ccsApplyActivationState(); });
 }
 
-document.getElementById("callsign").addEventListener("keypress", (e) => {
-    if (e.key == "Enter") document.getElementById("callsignQueryBtn").click();
-})
+function triggerSearchOnEnter(inputId, buttonId) {
+    const inputEl = document.getElementById(inputId);
+    const buttonEl = document.getElementById(buttonId);
+    if (!inputEl || !buttonEl) return;
 
-document.getElementById("callsign_qsl").addEventListener("keypress", (e) => {
-    if (e.key == "Enter") document.getElementById("callsignQueryBtnQsl").click();
-})
+    inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.code === "Enter") {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!buttonEl.disabled) {
+                buttonEl.click();
+            }
+        }
+    });
+}
+
+triggerSearchOnEnter("callsign", "callsignQueryBtn");
+triggerSearchOnEnter("callsign_qsl", "callsignQueryBtnQsl");
 
 document.getElementById("callsignQueryBtnQsl").addEventListener("click", (evt) => {
     evt.preventDefault();
