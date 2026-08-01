@@ -302,9 +302,57 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
 
     return {"info": f"file '{file.filename}' saved at '{fileLocation}'"}
 
+def _uploaded_log_dir() -> str:
+    return os.path.join(baseDir, "logs")
+
+
+def _uploaded_log_path(filename: str) -> str:
+    safe_name = os.path.basename(filename)
+    if not safe_name or safe_name != filename:
+        raise HTTPException(status_code=400, detail="Érvénytelen fájlnév")
+
+    log_dir = _uploaded_log_dir()
+    path = os.path.join(log_dir, safe_name)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="A fájl nem található")
+
+    real_dir = os.path.realpath(log_dir)
+    real_path = os.path.realpath(path)
+    if os.path.commonpath([real_dir, real_path]) != real_dir:
+        raise HTTPException(status_code=400, detail="Érvénytelen fájlnév")
+
+    return path
+
+
 @app.get("/api/v1/log_uploads", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def getUploadTs():
     return handle_db.getUploads()
+
+
+@app.get("/api/v1/uploaded_files", tags=["log"], dependencies=[Depends(auth.require_auth)])
+def list_uploaded_files():
+    log_dir = _uploaded_log_dir()
+    if not os.path.isdir(log_dir):
+        return []
+
+    files = []
+    for name in sorted(os.listdir(log_dir)):
+        path = os.path.join(log_dir, name)
+        if not os.path.isfile(path):
+            continue
+        stat = os.stat(path)
+        files.append({
+            "filename": name,
+            "size_bytes": stat.st_size,
+            "modified_at": int(stat.st_mtime),
+        })
+    return files
+
+
+@app.get("/api/v1/download_uploaded_file", tags=["log"], dependencies=[Depends(auth.require_auth)])
+def download_uploaded_file(filename: str):
+    path = _uploaded_log_path(filename)
+    return FileResponse(path, media_type="application/octet-stream", filename=os.path.basename(path))
 
 """@app.get("/last_logs")
 def getLogs():

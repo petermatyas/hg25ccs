@@ -69,6 +69,68 @@ function loadSiteActive() {
         .catch(() => setSiteActiveUi(false));
 }
 
+function formatBytes(bytes) {
+    if (!bytes || bytes < 1024) return `${bytes || 0} B`;
+    const units = ["B", "KB", "MB", "GB"];
+    let value = bytes;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+        value /= 1024;
+        unitIndex += 1;
+    }
+    return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;");
+}
+
+function renderUploadedFiles(files) {
+    const tbody = document.getElementById("uploadedFilesTableBody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+    if (!files.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Nincsenek feltöltött fájlok.</td></tr>';
+        return;
+    }
+
+    files.forEach((file) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${escapeHtml(file.filename || "")}</td>
+            <td>${formatBytes(file.size_bytes || 0)}</td>
+            <td>${new Date((file.modified_at || 0) * 1000).toLocaleString()}</td>
+            <td><button type="button" class="btn btn-sm btn-outline-primary">Letöltés</button></td>`;
+        row.querySelector("button").addEventListener("click", () => {
+            downloadUploadedFile(file.filename || "");
+        });
+        tbody.appendChild(row);
+    });
+}
+
+function loadUploadedFiles() {
+    fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/uploaded_files`)
+        .then(r => r.json())
+        .then(files => renderUploadedFiles(files || []))
+        .catch(err => {
+            const tbody = document.getElementById("uploadedFilesTableBody");
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-danger">A fájlok listázása sikertelen.</td></tr>';
+            }
+            console.error(err);
+        });
+}
+
+function downloadUploadedFile(filename) {
+    if (!filename) return;
+    downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_uploaded_file?filename=${encodeURIComponent(filename)}`, filename);
+}
+
 function bindDbAdmin() {
     // 0) Oldal aktiválása
     const siteToggle = document.getElementById("siteActiveToggle");
@@ -114,12 +176,15 @@ function bindDbAdmin() {
             .catch(err => dbMsg("Hiba a feltöltésnél: " + err.message, true));
     });
 
-    // 3) Export (JSON)
+    // 3) Feltöltött logfájlok listázása
+    loadUploadedFiles();
+
+    // 4) Export (JSON)
     document.getElementById("dbExportBtn").addEventListener("click", function() {
         downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/export_logs`, `logs_export_${tsString()}.json`);
     });
 
-    // 4) Import (JSON) (MEGERŐSÍTÉSSEL)
+    // 5) Import (JSON) (MEGERŐSÍTÉSSEL)
     document.getElementById("dbImportBtn").addEventListener("click", function() {
         const inp = document.getElementById("dbImportFile");
         if (!inp.files.length) { dbMsg("Válassz egy .json fájlt!", true); return; }
@@ -134,7 +199,7 @@ function bindDbAdmin() {
             .catch(err => dbMsg("Hiba az importnál: " + err.message, true));
     });
 
-    // 5) Tartalom törlése (MEGERŐSÍTÉSSEL)
+    // 6) Tartalom törlése (MEGERŐSÍTÉSSEL)
     document.getElementById("dbClearBtn").addEventListener("click", function() {
         if (!confirm("Biztosan TÖRLÖD az adatbázis teljes log-tartalmát?\n\nEz a művelet NEM vonható vissza!")) return;
 
