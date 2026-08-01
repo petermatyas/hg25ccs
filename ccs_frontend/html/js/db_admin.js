@@ -113,8 +113,18 @@ function renderUploadedFiles(files) {
     });
 }
 
+function fetchWithAuth(url, options) {
+    return fetch(url, {
+        ...(options || {}),
+        headers: {
+            ...(options && options.headers ? options.headers : {}),
+            ...(ccsGetToken ? { Authorization: `Bearer ${ccsGetToken()}` } : {})
+        }
+    });
+}
+
 function loadUploadedFiles() {
-    fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/uploaded_files`)
+    fetchWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/uploaded_files`)
         .then(r => r.json())
         .then(files => {
             const normalized = (files || []).map((file) => {
@@ -130,7 +140,7 @@ function loadUploadedFiles() {
                 return;
             }
 
-            return fetch(`${PROTO}${HOST}${BACKENDPORT}/api/v1/log_uploads`)
+            return fetchWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/log_uploads`)
                 .then(r => r.json())
                 .then(uploadRows => {
                     const fallback = (uploadRows || []).map((row) => {
