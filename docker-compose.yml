@@ -19,9 +19,10 @@ services:
       - CCS_GEOIP_LICENSE_KEY=${CCS_GEOIP_LICENSE_KEY:-}
       - CCS_GEOIP_HOST=${CCS_GEOIP_HOST:-geolite.info}
     volumes:
-      # Feltöltött QSL kártyák / adatbázis megőrzése újraindítás után.
+      # Feltöltött QSL kártyák / adatbázis / logfájlok megőrzése újraindítás után.
       - ./ccs_backend/qsls:/code/app/qsls
       - ./ccs_backend/database:/code/app/database
+      - ./ccs_backend/logs:/code/app/logs
     networks:
       # A frontend<->backend belső hálózat (nincs kifelé útvonala).
       - ccs_internal

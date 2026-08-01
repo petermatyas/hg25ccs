@@ -122,9 +122,10 @@ services:
     expose:
       - "8800"
     volumes:
-      # Feltöltött QSL kártyák és az adatbázis túléli az újraindítást.
+      # Feltöltött QSL kártyák, adatbázis és logfájlok túlélnek egy újraindítást.
       - ./hg25ccs/ccs_backend/qsls:/code/app/qsls
       - ./hg25ccs/ccs_backend/database:/code/app/database
+      - ./hg25ccs/ccs_backend/logs:/code/app/logs
     networks:
       - ccs_internal
 
