@@ -58,12 +58,12 @@ def generate_fpdf(callsign, out_path, lang="en"):
     
     fontPath = os.path.join(baseDir, "raw_diploma", "font", "Cinzel", "static", "Cinzel-SemiBold.ttf")
     pdf.add_font("myfont", "", fontPath)
-    pdf.set_font("myfont", size=80)
+    pdf.set_font("myfont", size=60)
     pdf.set_text_color(142, 25, 25)
     strWidth = pdf.get_string_width(callsign)
     print("strWidth", strWidth)
 
-    pdf.set_xy(W/2-strWidth/2, 25)
+    pdf.set_xy(W/2-strWidth/2, 30)
     pdf.cell(0, 0, callsign.upper())
 
     pdf.set_title("HG25CCS")
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
 
     startTime = time.time()
-    generate_fpdf("ha1nbs/p", "./tmp/test_diploma.pdf", "en")
+    generate_fpdf("qha1nbs/p", "./tmp/test_diploma.pdf", "en")
     print("time: ", time.time() - startTime)
 
     #generate_charset_preview("./tmp/font.pdf", font_size=80, cols=8)
