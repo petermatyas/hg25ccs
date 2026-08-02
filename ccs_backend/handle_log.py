@@ -270,6 +270,14 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
 
     return res
 
+
+def eoh_split(szoveg):
+    # Először elvágjuk a kisbetűs jelnél, és vesszük az első részt
+    szoveg = szoveg.split("<eoh>")[0]
+    # Majd a kapott eredményt elvágjuk a nagybetűs jelnél is
+    szoveg = szoveg.split("<EOH>")[0]
+    return szoveg
+
 def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
     """
     https://www.adif.org/100/adif_100.htm
@@ -280,10 +288,13 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     with open(filePath, "r", encoding="ISO-8859-1") as file:
         content = file.read()
 
-    #try:
-    #    local_operator_name = re.findall("name:* *(ha[a-z0-9/]+)", content.lower())[0]
-    #except:
-    #    local_operator_name = "error"
+    try:
+        local_operator_name = re.findall("name:* *(ha[a-z0-9/]+)", eoh_split(content).lower())[0]
+    except:
+
+        local_operator_name = "error"
+    print("----local_operator_name", local_operator_name)
+
 
     # ha külön sorba kerül minden
     content = content.replace("\n", "")
@@ -291,7 +302,7 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     content = content.replace("<eor>", "<eor>\n")
 
     logs = re.findall("<.+<eor>", content.lower())
-    print("logs: ", len(logs))
+    #print("logs: ", len(logs))
     res = list()
     for i in logs:
         #print("adif: ", i)
@@ -358,20 +369,20 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
 
         try:
             local_operator_station = re.findall("station_callsign:([0-9]+>)([a-z0-9]+)", i.lower())[0][1]
-            print("local_operator_station", local_operator_station)
+            #print("local_operator_station", local_operator_station)
         except:
             local_operator_station = "error"
 
         try:
             local_operator_operator = re.findall("operator:([0-9]+>)([a-z0-9/]+)", i.lower())[0][1]
-            print("local_operator_operator", local_operator_operator)
+            #print("local_operator_operator", local_operator_operator)
         except:
             local_operator_operator = "error"
         #print("local_operator_name", local_operator_name)
         
-        #if local_operator_name != "error":
-        #    local_operator = local_operator_name
-        if local_operator_station != "error":
+        if local_operator_name != "error":
+            local_operator = local_operator_name
+        elif local_operator_station != "error":
             local_operator = local_operator_station
         elif local_operator_operator != "error":
             local_operator = local_operator_operator
@@ -424,8 +435,8 @@ if __name__ == "__main__":
     #    print(i)
     
 
-    #path = "/home/ha1mp/Projektek/hg25ccs/ccs_backend/HA1MP-20260801-1936.adi"
     path = "/home/ha1mp/Downloads/HA1MP-20260802.adi"
+    #path = "/home/ha1mp/Downloads/HG25CCS_08_02_HA1NBS.adi"
     for i in process(path, "00", 0):
         print(i)
         #pass
