@@ -89,10 +89,48 @@ function fillTopTable(tbodyId, rows) {
         const label = (r.key === "" || r.key === null || r.key === undefined) ? "(nincs)" : r.key;
         tbody.innerHTML += `<tr><td>${i + 1}</td><td>${escapeHtml(String(label))}</td><td>${r.count}</td></tr>`;
     });
+    applyCollapsibleRows(tbody);
 }
 
 function escapeHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function applyCollapsibleRows(tbody) {
+    if (!tbody) return;
+
+    const table = tbody.closest("table");
+    if (!table) return;
+
+    const existingButtons = table.parentElement ? table.parentElement.querySelectorAll(`[data-collapsible-for="${tbody.id}"]`) : [];
+    existingButtons.forEach(btn => btn.remove());
+
+    const rows = Array.from(tbody.querySelectorAll("tr"));
+    if (rows.length <= 3) {
+        rows.forEach(row => row.classList.remove("d-none"));
+        return;
+    }
+
+    rows.slice(3).forEach(row => row.classList.add("d-none"));
+    rows.slice(0, 3).forEach(row => row.classList.remove("d-none"));
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "btn btn-link btn-sm p-0 mt-2";
+    button.setAttribute("data-collapsible-for", tbody.id);
+    button.textContent = "Többi megjelenítése";
+    button.addEventListener("click", () => {
+        const hiddenRows = Array.from(tbody.querySelectorAll("tr.d-none"));
+        if (hiddenRows.length > 0) {
+            hiddenRows.forEach(row => row.classList.remove("d-none"));
+            button.textContent = "Kevesebb megjelenítése";
+        } else {
+            rows.slice(3).forEach(row => row.classList.add("d-none"));
+            button.textContent = "Többi megjelenítése";
+        }
+    });
+
+    table.insertAdjacentElement("afterend", button);
 }
 
 function fillVisitStats() {
@@ -139,6 +177,7 @@ function fillVisitStats() {
                 (data.daily || []).forEach(d => {
                     dailyBody.innerHTML += `<tr><td>${d.day}</td><td>${d.count}</td></tr>`;
                 });
+                applyCollapsibleRows(dailyBody);
             }
 
             // Letöltések (látogatóval összekötve).
@@ -152,6 +191,7 @@ function fillVisitStats() {
                     const vh = d.visitor_hash ? escapeHtml(d.visitor_hash) : "–";
                     dlBody.innerHTML += `<tr><td>${t}</td><td>${kind}</td><td>${escapeHtml(d.callsign || "")}</td><td>${country}</td><td><code>${vh}</code></td></tr>`;
                 });
+                applyCollapsibleRows(dlBody);
             }
         })
         .catch(err => console.error("visit_stats hiba:", err));
