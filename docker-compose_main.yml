@@ -117,6 +117,8 @@ services:
     restart: unless-stopped
     env_file:
       - ./hg25ccs/.env
+    environment:
+      - CCS_LOGS_DIR=/code/app/logs
     # Se "ports", se Traefik label -> a webről elérhetetlen. Csak a
     # ccs_frontend éri el, a ccs_internal hálózaton.
     expose:

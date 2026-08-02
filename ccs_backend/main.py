@@ -261,7 +261,7 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     extension = file.filename.split(".")[-1]
     name = file.filename.replace("."+extension, "")
 
-    logDir = os.path.join(baseDir, "logs")
+    logDir = _uploaded_log_dir()
     os.makedirs(logDir, exist_ok=True)
     safe_name = f"{name}_{ts}.{extension}".replace("/", "_").replace("\\", "_")
     fileLocation = os.path.join(logDir, safe_name)
@@ -309,7 +309,11 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     }
 
 def _uploaded_log_dir() -> str:
-    return os.path.join(baseDir, "logs")
+    configured_dir = os.environ.get("CCS_LOGS_DIR", "").strip()
+    log_dir = configured_dir or os.path.join(baseDir, "logs")
+    log_dir = os.path.abspath(log_dir)
+    os.makedirs(log_dir, exist_ok=True)
+    return log_dir
 
 
 def _find_uploaded_log_path(filename: str, upload_timestamp: Optional[int] = None) -> Optional[str]:

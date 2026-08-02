@@ -13,6 +13,7 @@ services:
       # használja (élesben MINDENKÉPP állítsd be a .env-ben).
       - CCS_AUTH_SECRET=${CCS_AUTH_SECRET:-change-this-ccs-admin-secret}
       - CCS_ANALYTICS_SALT=${CCS_ANALYTICS_SALT:-change-this-ccs-analytics-salt}
+      - CCS_LOGS_DIR=/code/app/logs
       # GeoLite2 ONLINE web service (a látogatók országának feloldásához).
       # Üresen hagyva a számláló ország nélkül működik.
       - CCS_GEOIP_ACCOUNT_ID=${CCS_GEOIP_ACCOUNT_ID:-}
