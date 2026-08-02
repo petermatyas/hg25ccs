@@ -96,7 +96,7 @@ function escapeHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function applyCollapsibleRows(tbody) {
+function applyCollapsibleRows(tbody, showLastOnly = false) {
     if (!tbody) return;
 
     const table = tbody.closest("table");
@@ -111,21 +111,31 @@ function applyCollapsibleRows(tbody) {
         return;
     }
 
-    rows.slice(3).forEach(row => row.classList.add("d-none"));
-    rows.slice(0, 3).forEach(row => row.classList.remove("d-none"));
+    if (showLastOnly) {
+        rows.slice(0, rows.length - 3).forEach(row => row.classList.add("d-none"));
+        rows.slice(-3).forEach(row => row.classList.remove("d-none"));
+    } else {
+        rows.slice(3).forEach(row => row.classList.add("d-none"));
+        rows.slice(0, 3).forEach(row => row.classList.remove("d-none"));
+    }
 
     const button = document.createElement("button");
     button.type = "button";
     button.className = "btn btn-link btn-sm p-0 mt-2";
     button.setAttribute("data-collapsible-for", tbody.id);
-    button.textContent = "Többi megjelenítése";
+    button.textContent = showLastOnly ? "Összes megjelenítése" : "Többi megjelenítése";
     button.addEventListener("click", () => {
         const hiddenRows = Array.from(tbody.querySelectorAll("tr.d-none"));
         if (hiddenRows.length > 0) {
             hiddenRows.forEach(row => row.classList.remove("d-none"));
             button.textContent = "Kevesebb megjelenítése";
+        } else if (showLastOnly) {
+            rows.slice(0, rows.length - 3).forEach(row => row.classList.add("d-none"));
+            rows.slice(-3).forEach(row => row.classList.remove("d-none"));
+            button.textContent = "Összes megjelenítése";
         } else {
             rows.slice(3).forEach(row => row.classList.add("d-none"));
+            rows.slice(0, 3).forEach(row => row.classList.remove("d-none"));
             button.textContent = "Többi megjelenítése";
         }
     });
@@ -177,7 +187,7 @@ function fillVisitStats() {
                 (data.daily || []).forEach(d => {
                     dailyBody.innerHTML += `<tr><td>${d.day}</td><td>${d.count}</td></tr>`;
                 });
-                applyCollapsibleRows(dailyBody);
+                applyCollapsibleRows(dailyBody, true);
             }
 
             // Letöltések (látogatóval összekötve).
