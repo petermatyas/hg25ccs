@@ -280,17 +280,16 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     with open(filePath, "r", encoding="ISO-8859-1") as file:
         content = file.read()
 
-    try:
-        local_operator_name = re.findall("name:* *(ha[a-z0-9/]+)", content.lower())[0]
-    except:
-        local_operator_name = "error"
+    #try:
+    #    local_operator_name = re.findall("name:* *(ha[a-z0-9/]+)", content.lower())[0]
+    #except:
+    #    local_operator_name = "error"
 
     # ha külön sorba kerül minden
     content = content.replace("\n", "")
     content = content.replace("<EOR>", "<EOR>\n")
     content = content.replace("<eor>", "<eor>\n")
 
-    #print("local_operator_name", local_operator_name)
     logs = re.findall("<.+<eor>", content.lower())
     print("logs: ", len(logs))
     res = list()
@@ -368,12 +367,12 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
             print("local_operator_operator", local_operator_operator)
         except:
             local_operator_operator = "error"
-        print("local_operator_name", local_operator_name)
+        #print("local_operator_name", local_operator_name)
         
-        if local_operator_name != "error":
-            local_operator = local_operator_name
-        #elif local_operator_station != "error":
-        #    local_operator = local_operator_station
+        #if local_operator_name != "error":
+        #    local_operator = local_operator_name
+        if local_operator_station != "error":
+            local_operator = local_operator_station
         elif local_operator_operator != "error":
             local_operator = local_operator_operator
         elif fileNameCallsign != None:
@@ -425,7 +424,8 @@ if __name__ == "__main__":
     #    print(i)
     
 
-    path = "/home/ha1mp/Projektek/hg25ccs/ccs_backend/HA1MP-20260801-1936.adi"
+    #path = "/home/ha1mp/Projektek/hg25ccs/ccs_backend/HA1MP-20260801-1936.adi"
+    path = "/home/ha1mp/Downloads/HA1MP-20260802.adi"
     for i in process(path, "00", 0):
         print(i)
         #pass
