@@ -175,7 +175,7 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
     with open(filePath, "r", encoding="ISO-8859-1") as file:
         content = file.read()
 
-    bandDict = {"50 MHz": "6m", "70 MHz":"4m", "144 MHz": "2m", "432 MHz":"70cm", "1,3 GHz":"23cm"}
+    bandDict = {"50 MHz": "6m", "70 MHz":"4m", "144 MHz": "2m", "145 MHz": "2m", "432 MHz":"70cm", "1,3 GHz":"23cm"}
     modeDict = {"0":"??", "1":"SSB", "2":"CW", "3":"CW", "4":"SSB", "5":"AM", "6":"FM", "7":"RTTY", "8":"SSTV", "9":"ATV"}
 
     try:
