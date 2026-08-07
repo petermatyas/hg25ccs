@@ -654,7 +654,7 @@ def download_diploma(callsign, lang="en", request: Request = None):
     if os.path.exists(diplomaPath):
         vh = _visitor_hash(request) if request is not None else None
         handle_db.diplomaDownload(callsign, visitor_hash=vh)
-        return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG24CCS.pdf")
+        return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG25CCS.pdf")
     else:
         return {"error":"not exists"}
 
