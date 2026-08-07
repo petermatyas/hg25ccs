@@ -61,7 +61,7 @@ def clearCallsign(callsign):
 
 
 
-def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
+def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
     """
     https://wwrof.org/cabrillo/cabrillo-v3-header/
     """
@@ -80,11 +80,11 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
     try:
         operator_name = re.findall("NAME: (.+)", content)[0]
     except:
-        operator_name = "error"
+        operator_name = None
     try:
         operator_callsign = re.findall("CALLSIGN: (.+)", content)[0]
     except:
-        operator_callsign = "error"
+        operator_callsign = None
 
 
     logs = re.findall("QSO:.+|X-QSO:.+", content)
@@ -119,7 +119,6 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
             callsign = "error"
 
         try:
-            #print("-----------", line)
             date = line[3]
             time = line[4]
             dt = datetime.datetime.strptime(date + time, "%Y-%m-%d%H%M")
@@ -142,9 +141,9 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
         except:
             rst_rec = "error"
 
-        if operator_name != "error":
+        if operator_name != None and operator_name.lower() != local_callsign.lower():
             operator = operator_name
-        elif operator_callsign != "error":
+        elif operator_callsign != None and operator_callsign.lower() != local_callsign.lower():
             operator = operator_callsign
         elif fileNameCallsign != None:
             operator = fileNameCallsign
@@ -169,7 +168,7 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
 
     return res
 
-def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
+def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
     """
     https://www.ok2kkw.com/ediformat.htm
     """
@@ -182,15 +181,15 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
     try:
         operator_mopel = re.findall("MOpe1=(.+)", content)[0]
     except:
-        operator_mopel = "error"
+        operator_mopel = None
     try:
         operator_pcall = re.findall("PCall=(.+)", content)[0]
     except:
-        operator_pcall = "error"
+        operator_pcall = None
     try:
         operator_rcall = re.findall("RCall=(.+)", content)[0]
     except:
-        operator_rcall = "error"
+        operator_rcall = None
 
     try:
         band = re.findall("PBand=(.+)", content)[0]
@@ -241,11 +240,11 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
         except:
             rst_rec = "error"
 
-        if operator_mopel != "error":
+        if operator_mopel != None and operator_mopel.lower() != local_callsign.lower():
             operator = operator_mopel
-        elif operator_pcall != "error":
+        elif operator_pcall != None and operator_pcall.lower() != local_callsign.lower():
             operator = operator_pcall
-        elif operator_rcall != "error":
+        elif operator_rcall != None and operator_rcall.lower() != local_callsign.lower():
             operator = operator_rcall
         elif fileNameCallsign != None:
             operator = fileNameCallsign
@@ -278,7 +277,7 @@ def eoh_split(szoveg):
     szoveg = szoveg.split("<EOH>")[0]
     return szoveg
 
-def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
+def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
     """
     https://www.adif.org/100/adif_100.htm
     """
@@ -292,7 +291,7 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
         local_operator_name = re.findall("name:* *(ha[a-z0-9/]+)", eoh_split(content).lower())[0]
     except:
 
-        local_operator_name = "error"
+        local_operator_name = None
     print("----local_operator_name", local_operator_name)
 
 
@@ -371,28 +370,32 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
             local_operator_station = re.findall("station_callsign:([0-9]+>)([a-z0-9]+)", i.lower())[0][1]
             #print("local_operator_station", local_operator_station)
         except:
-            local_operator_station = "error"
+            local_operator_station = None
 
         try:
             local_operator_operator = re.findall("operator:([0-9]+>)([a-z0-9/]+)", i.lower())[0][1]
             #print("local_operator_operator", local_operator_operator)
         except:
-            local_operator_operator = "error"
+            local_operator_operator = None
         #print("local_operator_name", local_operator_name)
         
-        if local_operator_name != "error":
+        if local_operator_name != None and local_operator_name.lower() != local_callsign.lower():
+            #print("local_operator_name", local_operator_name)
             local_operator = local_operator_name
-        elif local_operator_station != "error":
+        elif local_operator_station != None and local_operator_station.lower() != local_callsign.lower():
+            #print("local_operator_station", local_operator_station)
             local_operator = local_operator_station
-        elif local_operator_operator != "error":
+        elif local_operator_operator != None and local_operator_operator.lower() != local_callsign.lower():
+            #print("local_operator_operator", local_operator_operator)
             local_operator = local_operator_operator
         elif fileNameCallsign != None:
+            #print("fileNameCallsign", fileNameCallsign)
             local_operator = fileNameCallsign
         elif uploadedUserCallsign != None:
+            #print("uploadedUserCallsign", uploadedUserCallsign)
             local_operator = uploadedUserCallsign
         else:
             local_operator = "error"
-
 
         res.append({"callsign":callsign.upper(), 
                     "band":band, 
@@ -410,14 +413,14 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     return res
 
 
-def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None):
+def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign="hg25ccs"):
     extension = filePath.split(".")[-1]
     if extension.lower() in ["edi"]:
-        logLines = process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
+        logLines = process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
     elif extension.lower() in ["adi", "adif"]:
-        logLines = process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
+        logLines = process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
     elif extension.lower() in ["cbr", "log"]:
-        logLines = process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign)
+        logLines = process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
     else:
         return "file extension error"
 
@@ -425,19 +428,15 @@ def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, 
 
 
 if __name__ == "__main__":
-    #for i in process_callibro("./logs/HG24SA.cbr", "HG24SA.cbr", 1234567):
-    #    print(i)
-    #for i in process_adif("./test/wsjtx_log_04_18-ADI.adi", "wsjtx_log_04_18-ADI.adi", 1234567):
-    #    print(i)
-    #for i in process_edi("./test/HA1MP_01.edi", "HA1MP_01.edi", 12345678):
-    #    print(i)
-    #for i in process_adif("./Test logok/MixW2_1IN_1DLI.adi", "MixW2_1IN_1DLI.adi", 1234567):
-    #    print(i)
-    
 
     path = "/home/ha1mp/Downloads/HA1MP-20260802.adi"
-    #path = "/home/ha1mp/Downloads/HG25CCS_08_02_HA1NBS.adi"
-    for i in process(path, "00", 0):
+    path = "/home/ha1mp/Downloads/HG25CCS_20260806_HA1LS_ALL_QSO.adi"
+    for i in process(filePath=path, 
+                     uploadedFileName="00", 
+                     uploadTimestamp=0, 
+                     fileNameCallsign="HA1MP", 
+                     uploadedUserCallsign="HA1MP", 
+                     local_callsign="HG25CCS"):
         print(i)
         #pass
     

@@ -52,6 +52,7 @@ bands     = ["70cm", "2m", "4m", "6m", "10m", "12m", "15m", "17m", "20m", "30m",
 modes     = ["CW", "SSB", "FM", "DIGI"]
 operators = auth.get_usernames()
 
+activationCallsign = "hg25ccs"
 
 extraDiplomaList = []
 
@@ -265,12 +266,11 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     os.makedirs(logDir, exist_ok=True)
     safe_name = f"{name}_{ts}.{extension}".replace("/", "_").replace("\\", "_")
     fileLocation = os.path.join(logDir, safe_name)
-    #print("fileLocation: ", fileLocation)
-    #fileType = file.filename
-    #print("fileType: ", fileType)
 
     callsign_pattern = r"[hH][aA]1[a-zA-Z]+"
     matches = re.findall(callsign_pattern, name)
+    callsigns = [match.lower() for match in matches]
+    callsigns.remove(activationCallsign.lower()) if activationCallsign.lower() in callsigns else None
     callsign = matches[0] if matches else None
 
     newFile = await file.read()
@@ -281,23 +281,7 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     uploadTs = int(time.time())
     
     logLines = handle_log.process(fileLocation, name+"."+extension, uploadTs, fileNameCallsign=callsign, uploadedUserCallsign=uploadUserCallsign)
-    """#print("----------------------------", extension.lower())
-    if extension.lower() in ["edi"]:
-        logLines = handle_log.process_edi(fileLocation, name+"."+extension, uploadTs)
-    elif extension.lower() in ["adi", "adif"]:
-        #print("----------------------------")
-        logLines = handle_log.process_adif(fileLocation, name+"."+extension, uploadTs)
-    elif extension.lower() in ["cbr", "log"]:
-        logLines = handle_log.process_callibro(fileLocation, name+"."+extension, uploadTs)
-    else:
-        return "file extension error"
-    """
-    #callsignList = [i["callsign"] for i in logLines]
-    #print(callsignList)
-    """x = threading.Thread(target=preGenerateDiplomas, args=(callsignList,))
-    x.start()
-    #x.join()"""
-    #print(logLines)
+
     handle_db.addLogs(logLines)
     handle_db.readLogs()
 
