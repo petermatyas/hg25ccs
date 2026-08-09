@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy import Column, Integer, String
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -364,13 +364,53 @@ def getUploads():
     q = session.query(Log.callsign).count()
     return q"""
 
-def getAllParticipant():
-    q = session.query(Log.callsign).group_by(Log.callsign).all()
-    """res = list()
-    for i in q:
-        res.append(i[0])
-    return res"""
-    return [i[0] for i in q]
+def _normalize_callsign(callsign):
+    if not callsign:
+        return ""
+
+    callsign = callsign.upper().replace("_", "/").strip()
+    segments = [seg for seg in callsign.split("/") if seg]
+    if not segments:
+        return ""
+
+    digit_segments = [seg for seg in segments if any(ch.isdigit() for ch in seg)]
+    if digit_segments:
+        return digit_segments[0]
+
+    return segments[-1]
+
+
+def getAllParticipant(prefix=None):
+    rows = session.query(Log.callsign).all()
+    seen = set()
+    out = []
+
+    def prefix_matches(value, prefix_value):
+        if isinstance(prefix_value, str):
+            return value.startswith(prefix_value)
+        if isinstance(prefix_value, list):
+            return any(value.startswith(p) for p in prefix_value)
+        return False
+
+    normalized_prefix = None
+    if prefix is not None:
+        if isinstance(prefix, str):
+            normalized_prefix = prefix.upper()
+        elif isinstance(prefix, list):
+            normalized_prefix = [p.upper() for p in prefix if isinstance(p, str)]
+
+    for (callsign,) in rows:
+        norm = _normalize_callsign(callsign)
+        if not norm or norm in seen:
+            continue
+
+        if normalized_prefix is not None and not prefix_matches(norm, normalized_prefix):
+            continue
+
+        seen.add(norm)
+        out.append(norm)
+
+    return sorted(out)
 
 """def getAllParticipantOccurance():
     q = session.query(Log.callsign, func.count(Log.callsign).label('pcs')).group_by(Log.callsign).order_by('pcs').all()
@@ -742,19 +782,12 @@ def getVisitStats(include_bots=False):
 
 
 if __name__ == "__main__":
-    #print(getAllParticipant())
-    #diplomaDownload("callsign")
-    #getDownloadedDiplomas()
-
-    """print("active", isBandActive("ha1mp", "2m", "ssb"))
-    activateBand("ha1mp", "2m", "ssb")
-    print("active", isBandActive("ha1mp", "2m", "ssb"))
-    print("---------", getActiveBands())
-    deactivateBand("ha1mp", "2m", "ssb")
-    print("---------", getActiveBands())
-    print("active", isBandActive("ha1mp", "2m", "ssb"))"""
-
-
-    #print(getAllParticipant())
-    print(query("g0tsm"))
+    import country
+    
+    #print(query("g0tsm"))
+    for callsign in getAllParticipant():
+        c = country.getCountry(callsign) or "Ismeretlen"
+        if c == "Ismeretlen":
+            print(f"{callsign}\t{c}")
+        #print(f"{callsign}\t{c}")
 
