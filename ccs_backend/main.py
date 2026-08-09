@@ -13,10 +13,10 @@ import uvicorn
 
 import time
 from datetime import datetime, timezone
-import pytz
+#import pytz
 import os
 import json
-import threading
+#import threading
 import hashlib
 from zipfile import ZipFile
 import re
@@ -597,7 +597,7 @@ def generate_diploma(callsign, lang="en", request: Request = None):
             pass
 
     qsos = handle_db.query(callsign)
-    print(qsos)
+    #print(qsos)
     qsos_unique = list(set([(i["band"], i["mode"]) for i in qsos]))
     valid_qsos_nr = len(qsos_unique)
 
@@ -833,6 +833,7 @@ def removeDiplomas():
     removed_files = _remove_pdf_files(path)
     return {"removed": removed_files, "removed_count": len(removed_files)}
 
+# TODO törölni?
 @app.delete("/api/v1/remove_qsls", tags=["debug"], dependencies=[Depends(auth.require_auth)])
 def removeQsls():
     path = os.path.join(baseDir, "qsls")

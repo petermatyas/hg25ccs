@@ -14,6 +14,7 @@ baseDir = os.path.dirname(os.path.realpath(__file__))
 databaseDir = os.path.join(baseDir, "database")
 databaseName = "logs.sqlite3"
 
+
 databasePath = os.path.join(databaseDir, databaseName)
 
 
@@ -339,23 +340,12 @@ def removeLogs(uploadTimestamp, filename):
     session.commit() 
 
 def query(callsign):
-    #def query(callsign, startTs=None, stopTs=None):
-    """tz = pytz.timezone("Europe/Budapest")
-    if startTs == None:
-        dt_start = datetime(2025, 1, 1, 0, 0, tzinfo=tz)
-        startTs = int(dt_start.replace(tzinfo=timezone.utc).timestamp())
-    if stopTs == None:
-        dt_stop = datetime(2026, 1, 1, 0, 0, tzinfo=tz)
-        stopTs = int(dt_stop.replace(tzinfo=timezone.utc).timestamp())"""
 
-    #q = session.query(Log).where(Log.callsign==callsign.upper()).where(Log.log_timestamp_utc >= startTs).where(Log.log_timestamp_utc <= stopTs)
-    with _db() as s:
-        q = s.query(Log).where(Log.callsign==callsign.upper())
+   with _db() as s:
+        q = s.query(Log).where(Log.callsign.ilike(f"%{callsign}%"))
 
         temp = list()
         for i in q:
-            #print("7====", i.callsign, i.band, i.mode)
-            #temp.append([i.band, i.mode, i.log_timestamp_utc])
             temp.append({"band":i.band, "mode":i.mode, "timestamp":i.log_timestamp_utc, "qth":i.qth, "rst_sent":i.rst_sent, "rst_received":i.rst_rec,
                          "local_operator":i.local_operator, "upload_timestamp_utc": i.upload_timestamp_utc, "uploaded_filename":i.uploaded_filename})
         return temp
@@ -766,5 +756,5 @@ if __name__ == "__main__":
 
 
     #print(getAllParticipant())
-    print(query("ha1wd"))
+    print(query("g0tsm"))
 
