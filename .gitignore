@@ -39,3 +39,10 @@ certbot/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+
+
+ccs_backend/database/logs.sqlite3
+ccs_backend/database/logs.sqlite3-shm
+ccs_backend/database/logs.sqlite3-wal
+
