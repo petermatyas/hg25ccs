@@ -811,25 +811,37 @@ def downloadLogs():
 
     return FileResponse(outFilePath, media_type='application/octet-stream',filename=outFileName)
 
+def _remove_pdf_files(path):
+    removed_files = []
+    if not os.path.isdir(path):
+        return removed_files
+
+    for fileName in os.listdir(path):
+        if not fileName.lower().endswith(".pdf"):
+            continue
+        filePath = os.path.join(path, fileName)
+        try:
+            os.remove(filePath)
+            removed_files.append(fileName)
+        except Exception:
+            pass
+    return removed_files
+
 @app.delete("/api/v1/remove_diplomas", tags=["debug"], dependencies=[Depends(auth.require_auth)])
 def removeDiplomas():
     path = os.path.join(baseDir, "diplomas")
-
-    fileNames = os.listdir(path)
-    for fileName in fileNames:
-        os.remove(os.path.join(path, fileName))
-    
-    return {"removed": fileNames}
+    removed_files = _remove_pdf_files(path)
+    return {"removed": removed_files, "removed_count": len(removed_files)}
 
 @app.delete("/api/v1/remove_qsls", tags=["debug"], dependencies=[Depends(auth.require_auth)])
 def removeQsls():
     path = os.path.join(baseDir, "qsls")
+    removed_files = _remove_pdf_files(path)
+    return {"removed": removed_files, "removed_count": len(removed_files)}
 
-    fileNames = os.listdir(path)
-    for fileName in fileNames:
-        os.remove(os.path.join(path, fileName))
-    
-    return {"removed": fileNames}
+@app.delete("/api/v1/remove_sql", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+def removeSql():
+    return removeQsls()
 
 @app.post("/api/v1/upload_file", tags=["debug"], dependencies=[Depends(auth.require_auth)])
 async def upload_file(folder:str, file: UploadFile):

@@ -275,14 +275,14 @@
 
           <div class="row my-3">
               <div class="col-md-5">
-                  <h4>Diplomát szerzettek</h4>
+                  <h4>Diplomát szereztek</h4>
                   <div style="max-height: 320px; overflow:auto;">
                       <table class="table table-sm table-striped mb-0" id="diplomaEarnersTable">
                           <thead>
                               <tr>
                                   <th scope="col">Hívójel</th>
-                                  <th scope="col">Diploma</th>
-                                  <th scope="col">QSL</th>
+                                  <th scope="col">Diplomát letöltötte</th>
+                                  <th scope="col">QSL lapot letöltötte</th>
                               </tr>
                           </thead>
                           <tbody id="diploma"></tbody>
@@ -381,9 +381,17 @@
           <!-- Veszélyzóna: tartalom törlése -->
           <div class="row my-3 p-3 border border-danger rounded">
               <h5 class="text-danger">Veszélyzóna</h5>
-              <div class="col">
+              <div class="col-md-4 mb-2">
                   <p class="text-muted small mb-2">Az adatbázis teljes log-tartalmának törlése. Ez a művelet nem vonható vissza!</p>
                   <button type="button" class="btn btn-danger" id="dbClearBtn">Adatbázis tartalmának törlése</button>
+              </div>
+              <div class="col-md-4 mb-2">
+                  <p class="text-muted small mb-2">A /diplomas mappában lévő PDF fájlok törlése. Ez a művelet nem vonható vissza!</p>
+                  <button type="button" class="btn btn-danger" id="removeDiplomasBtn">Diploma PDF-ek törlése</button>
+              </div>
+              <div class="col-md-4 mb-2">
+                  <p class="text-muted small mb-2">A /qsls mappában (QSL PDF-ek) lévő PDF fájlok törlése. Ez a művelet nem vonható vissza!</p>
+                  <button type="button" class="btn btn-danger" id="removeSqlBtn">QSL PDF-ek törlése</button>
               </div>
           </div>
         </div><!-- /tab-db -->

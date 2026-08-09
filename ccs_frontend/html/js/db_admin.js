@@ -126,6 +126,21 @@ function fetchWithAuth(url, options) {
     });
 }
 
+function removePdfFiles(url, confirmText, successText) {
+    if (!confirm(confirmText)) return;
+    dbMsg("Törlés folyamatban...");
+    fetch(url, { method: "DELETE" })
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
+        .then(d => {
+            const removedCount = d.removed_count ?? (Array.isArray(d.removed) ? d.removed.length : 0);
+            dbMsg(`${successText} ${removedCount} fájl törölve.`);
+        })
+        .catch(err => dbMsg("Hiba a törlésnél: " + err.message, true));
+}
+
 function loadUploadedFiles() {
     fetchWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/uploaded_files`)
         .then(r => r.json())
@@ -252,5 +267,21 @@ function bindDbAdmin() {
             .then(r => r.json())
             .then(d => dbMsg(`Törölve: ${d.deleted} bejegyzés.`))
             .catch(err => dbMsg("Hiba a törlésnél: " + err.message, true));
+    });
+
+    document.getElementById("removeDiplomasBtn").addEventListener("click", function() {
+        removePdfFiles(
+            `${PROTO}${HOST}${BACKENDPORT}/api/v1/remove_diplomas`,
+            "Biztosan törlöd a /diplomas mappában lévő PDF fájlokat?\n\nEz a művelet NEM vonható vissza!",
+            "Diploma PDF fájlok törölve."
+        );
+    });
+
+    document.getElementById("removeSqlBtn").addEventListener("click", function() {
+        removePdfFiles(
+            `${PROTO}${HOST}${BACKENDPORT}/api/v1/remove_qsls`,
+            "Biztosan törlöd a /sql (QSL) mappában lévő PDF fájlokat?\n\nEz a művelet NEM vonható vissza!",
+            "QSL PDF fájlok törölve."
+        );
     });
 }
