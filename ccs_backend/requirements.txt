@@ -10,3 +10,5 @@ fpdf2
 geoip2
 requests
 user-agents
+python-docx
+openpyxl

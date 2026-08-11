@@ -396,8 +396,17 @@ def getUploadTs():
 
 @app.get("/api/v1/uploaded_files", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def list_uploaded_files():
+    """A feltöltött naplófájlok listája.
+
+    Nem csak az adatbázisból: bekerül az a fájl is, ami ott van a logs
+    mappában, de nincs (vagy már nincs) hozzá sor a log táblában – pl. mert a
+    feldolgozása nem adott QSO-t, vagy a sorait utólag törölték. Korábban a
+    mappa átnézése csak akkor futott le, ha az adatbázisból SEMMI nem jött, így
+    ezek a fájlok nem látszottak és nem lehetett letölteni őket.
+    """
     files = []
     seen_names = set()
+    seen_paths = set()
 
     for upload_ts, uploaded_filename in handle_db.getUploads():
         if uploaded_filename in seen_names:
@@ -406,36 +415,39 @@ def list_uploaded_files():
 
         path = _find_uploaded_log_path(uploaded_filename, upload_ts)
         if path is not None:
+            seen_paths.add(os.path.realpath(path))
             stat = os.stat(path)
             files.append({
                 "filename": uploaded_filename,
                 "size_bytes": stat.st_size,
                 "modified_at": int(stat.st_mtime),
+                "in_database": True,
             })
         else:
             files.append({
                 "filename": uploaded_filename,
                 "size_bytes": 0,
                 "modified_at": 0,
+                "in_database": True,
             })
 
-    if files:
-        return files
-
+    # A mappában lévő, de fent még nem szereplő fájlok. Az adatbázis az eredeti
+    # nevet tárolja, a lemezen viszont '<név>_<ts>.<kiterjesztés>' van, ezért a
+    # feloldott valódi útvonal alapján szűrünk, nem fájlnév szerint.
     log_dir = _uploaded_log_dir()
-    if not os.path.isdir(log_dir):
-        return []
+    if os.path.isdir(log_dir):
+        for name in sorted(os.listdir(log_dir)):
+            path = os.path.join(log_dir, name)
+            if not os.path.isfile(path) or os.path.realpath(path) in seen_paths:
+                continue
+            stat = os.stat(path)
+            files.append({
+                "filename": name,
+                "size_bytes": stat.st_size,
+                "modified_at": int(stat.st_mtime),
+                "in_database": False,
+            })
 
-    for name in sorted(os.listdir(log_dir)):
-        path = os.path.join(log_dir, name)
-        if not os.path.isfile(path):
-            continue
-        stat = os.stat(path)
-        files.append({
-            "filename": name,
-            "size_bytes": stat.st_size,
-            "modified_at": int(stat.st_mtime),
-        })
     return files
 
 
