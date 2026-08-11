@@ -46,6 +46,30 @@ def freqToBand(freq):
     else:
         return "error"
 
+def toUtcTimestamp(dateStr, timeStr, dateFormat):
+    """A napló dátum + idő mezőjéből UTC időbélyeg.
+
+    Az idő 4 (HHMM) és 6 (HHMMSS) jegyű alakban is érkezhet – az ADIF szabvány
+    mindkettőt megengedi. A fix "%H%M%S" ezért nem jó: a Python nem követeli
+    meg a nullákkal feltöltést, így a 4 jegyűt NÉMÁN félreolvassa
+    ('1612' -> 16:01:02 a helyes 16:12:00 helyett).
+
+    A napló ideje UTC, ezért kifejezetten UTC-ként értelmezzük: a
+    datetime.timestamp() egyébként a GÉP helyi idejét venné alapul, és a
+    beolvasott idő a futtató környezet időzónájától függően csúszna el.
+    """
+    timeDigits = "".join(ch for ch in str(timeStr) if ch.isdigit())
+    if len(timeDigits) == 4:
+        timeFormat = "%H%M"
+    elif len(timeDigits) == 6:
+        timeFormat = "%H%M%S"
+    else:
+        raise ValueError(f"ismeretlen idő formátum: {timeStr}")
+
+    dt = datetime.datetime.strptime(str(dateStr) + timeDigits, dateFormat + timeFormat)
+    return dt.replace(tzinfo=datetime.timezone.utc).timestamp()
+
+
 def clearCallsign(callsign):
 
     if callsign.upper().endswith("/P"):
@@ -118,13 +142,14 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
         except:
             callsign = "error"
 
+        date = ""
+        time = ""
         try:
             date = line[3]
             time = line[4]
-            dt = datetime.datetime.strptime(date + time, "%Y-%m-%d%H%M")
-            log_utc_ts = datetime.datetime.timestamp(dt)
+            log_utc_ts = toUtcTimestamp(date, time, "%Y-%m-%d")
         except:
-            log_utc_ts = "[ERROR] date:"+date+"_time:"+time
+            log_utc_ts = "[ERROR] date:"+str(date)+"_time:"+str(time)
 
         try:
             qth = "none"
@@ -217,13 +242,14 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
         except:
             mode = "error"
         
+        date = ""
+        time = ""
         try:
             date = i.split(";")[0]
             time = i.split(";")[1]
-            dt = datetime.datetime.strptime(date + time, "%y%m%d%H%M")
-            log_utc_ts = datetime.datetime.timestamp(dt)                   
+            log_utc_ts = toUtcTimestamp(date, time, "%y%m%d")
         except:
-            log_utc_ts = "[ERROR] date:"+date+"_time:"+time 
+            log_utc_ts = "[ERROR] date:"+str(date)+"_time:"+str(time)
 
         try:
             qth = i.split(";")[9]
@@ -329,15 +355,21 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
             if mode.lower() in modeDict:
                 mode = modeDict[mode.lower()]
         except:
-            log_utc_ts = "[ERROR] date:"+date+"_time:"+time
+            # Korábban itt (rossz helyen) az időbélyeg hibaágának másolata állt,
+            # ami ráadásul még nem létező változókra hivatkozott.
+            mode = "error"
 
+        date = ""
+        time = ""
         try:
             date = re.findall("<qso_date:([0-9]+>)([a-zA-Z0-9]+)", i.lower())[0][1]
             time = re.findall("<time_on:([0-9]+>)([a-zA-Z0-9]+)", i.lower())[0][1]
-            dt = datetime.datetime.strptime(date + time, "%Y%m%d%H%M%S")
-            log_utc_ts = datetime.datetime.timestamp(dt) 
+            log_utc_ts = toUtcTimestamp(date, time, "%Y%m%d")
         except:
-            pass
+            # Enélkül az előző QSO időbélyege maradt volna a változóban (az
+            # első rekordnál pedig NameError szállt volna el, ami a teljes
+            # feltöltést elvitte).
+            log_utc_ts = "[ERROR] date:"+str(date)+"_time:"+str(time)
 
         try:
             qth = re.findall("<gridsquare:([0-9]+>)([a-zA-Z0-9]+)", i.lower())[0][1]
