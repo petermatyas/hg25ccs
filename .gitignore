@@ -47,3 +47,4 @@ ccs_backend/database/logs.sqlite3-shm
 ccs_backend/database/logs.sqlite3-wal
 
 /ccs_backend/tmp
+ccs_backend/database/logs.sqlite3
