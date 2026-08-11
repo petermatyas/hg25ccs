@@ -340,12 +340,28 @@ def removeLogs(uploadTimestamp, filename):
     session.commit() 
 
 def query(callsign):
+    """Egy állomás QSO-i, a hívójel MINDEN alakjával együtt.
 
-   with _db() as s:
-        q = s.query(Log).where(Log.callsign.ilike(f"%{callsign}%"))
+    Ugyanaz az állomás többféleképpen kerülhet a naplóba (HA1DC / DL_HA1DC,
+    HA1US / HA1US/3), ezért a normalizált alakra keresünk. Az SQL-ben az ilike
+    csak ELŐSZŰRÉS (a normalizált alak minden változatban részszövegként benne
+    van), a döntést a normalizált alakok egyezése hozza.
+
+    Fontos: a puszta részszöveg-keresés a rövidebb hívójelbe beolvasztotta a
+    hosszabbakat (EA1A <- EA1AJT, EA1AOC, EA1AXX), így más állomások QSO-i
+    alapján adott volna diplomát és QSL-lapot.
+    """
+    core = _normalize_callsign(callsign)
+    if not core:
+        return []
+
+    with _db() as s:
+        q = s.query(Log).where(Log.callsign.ilike(f"%{core}%"))
 
         temp = list()
         for i in q:
+            if _normalize_callsign(i.callsign) != core:
+                continue
             temp.append({"band":i.band, "mode":i.mode, "timestamp":i.log_timestamp_utc, "qth":i.qth, "rst_sent":i.rst_sent, "rst_received":i.rst_rec,
                          "local_operator":i.local_operator, "upload_timestamp_utc": i.upload_timestamp_utc, "uploaded_filename":i.uploaded_filename})
         return temp
@@ -364,7 +380,29 @@ def getUploads():
     q = session.query(Log.callsign).count()
     return q"""
 
+def _looks_like_callsign(segment):
+    """Igazi hívójel-e a szegmens, vagy csak DX-prefix / toldalék?
+
+    A hívójelben az utolsó számjegy UTÁN is van betű (HB9TNW, DL8XAB, IZ4MJP),
+    a DX-prefixben (I3, IK3, OE7) és a toldalékban (P, M, QRP, 3) nincs.
+    """
+    lastDigit = -1
+    for idx, ch in enumerate(segment):
+        if ch.isdigit():
+            lastDigit = idx
+
+    if lastDigit == -1:
+        return False
+    return any(ch.isalpha() for ch in segment[lastDigit + 1:])
+
+
 def _normalize_callsign(callsign):
+    """Az állomás "igazi" hívójele: I3/HB9TNW -> HB9TNW, HA1US/3 -> HA1US.
+
+    Nem elég a legelső számot tartalmazó szegmenst venni: a DX-prefix is
+    tartalmaz számjegyet (I3/HB9TNW, IK3/UY7LA, OE7/IZ4MJP), így az operátor
+    hívójele helyett a prefix maradt volna meg.
+    """
     if not callsign:
         return ""
 
@@ -373,6 +411,13 @@ def _normalize_callsign(callsign):
     if not segments:
         return ""
 
+    # Elsődlegesen az igazi hívójel alakú szegmens kell; ha több is akad
+    # (nagyon ritka), a hosszabb a hívójel, a rövidebb a prefix.
+    callsign_segments = [seg for seg in segments if _looks_like_callsign(seg)]
+    if callsign_segments:
+        return max(callsign_segments, key=len)
+
+    # Vészmegoldás ismeretlen alakra (pl. csak prefix): a korábbi viselkedés.
     digit_segments = [seg for seg in segments if any(ch.isdigit() for ch in seg)]
     if digit_segments:
         return digit_segments[0]
