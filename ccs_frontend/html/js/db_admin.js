@@ -43,6 +43,48 @@ function downloadWithAuth(url, filename) {
         });
 }
 
+function summaryMsg(text, isError) {
+    const el = document.getElementById("summaryMsg");
+    if (!el) return;
+    el.textContent = text;
+    el.className = "my-2 " + (isError ? "text-danger" : "text-success");
+}
+
+// QSO kimutatás letöltése. A visszajelzés a saját fülén jelenik meg, ezért nem
+// a downloadWithAuth()-ot használja (az az Adatbázis fülre írna).
+function downloadQsoSummary(format) {
+    const minQsoInput = document.getElementById("summaryMinQso");
+    const onlyHuInput = document.getElementById("summaryOnlyHungarian");
+
+    const minValidQso = Math.max(1, parseInt(minQsoInput ? minQsoInput.value : "3", 10) || 1);
+    const onlyHungarian = onlyHuInput ? onlyHuInput.checked : false;
+
+    const url = `${PROTO}${HOST}${BACKENDPORT}/api/v1/qso_summary`
+        + `?format=${encodeURIComponent(format)}`
+        + `&min_valid_qso=${minValidQso}`
+        + `&only_hungarian=${onlyHungarian}`;
+    const filename = `hg25ccs_qso_kimutatas_${tsString()}.${format === "doc" ? "docx" : "xlsx"}`;
+
+    summaryMsg("Kimutatás készítése...");
+    return fetch(url)
+        .then(resp => {
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            return resp.blob();
+        })
+        .then(blob => {
+            const objUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = objUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(objUrl);
+            summaryMsg("Letöltés kész: " + filename);
+        })
+        .catch(err => summaryMsg("Hiba a letöltésnél: " + err.message, true));
+}
+
 // Az oldal aktiválási állapotának megjelenítése a kapcsolón és a felirat.
 function setSiteActiveUi(active) {
     const toggle = document.getElementById("siteActiveToggle");
@@ -187,7 +229,16 @@ function downloadUploadedFile(filename) {
         });
 }
 
+function bindSummaryTab() {
+    const docBtn = document.getElementById("summaryDocBtn");
+    const xlsBtn = document.getElementById("summaryXlsBtn");
+    if (docBtn) docBtn.addEventListener("click", () => downloadQsoSummary("doc"));
+    if (xlsBtn) xlsBtn.addEventListener("click", () => downloadQsoSummary("xls"));
+}
+
 function bindDbAdmin() {
+    bindSummaryTab();
+
     // 0) Oldal aktiválása
     const siteToggle = document.getElementById("siteActiveToggle");
     if (typeof loadUploadedFiles === "function" && document.getElementById("uploadedFilesTableBody")) {

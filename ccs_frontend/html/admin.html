@@ -50,6 +50,9 @@
           <button class="nav-link" id="tab-stats-btn" data-bs-toggle="tab" data-bs-target="#tab-stats" type="button" role="tab">Statisztika</button>
         </li>
         <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-summary-btn" data-bs-toggle="tab" data-bs-target="#tab-summary" type="button" role="tab">QSL kimutatás</button>
+        </li>
+        <li class="nav-item" role="presentation">
           <button class="nav-link" id="tab-db-btn" data-bs-toggle="tab" data-bs-target="#tab-db" type="button" role="tab">Adatbázis</button>
         </li>
         <li class="nav-item" role="presentation">
@@ -310,6 +313,40 @@
         </div><!-- /tab-stats -->
 
         <!-- ================= TAB: Adatbázis ================= -->
+        <!-- ================= TAB: QSL kimutatás ================= -->
+        <div class="tab-pane fade" id="tab-summary" role="tabpanel" aria-labelledby="tab-summary-btn">
+          <h3 class="my-3">QSL kimutatás</h3>
+          <div id="summaryMsg" class="my-2"></div>
+
+          <div class="row my-3 p-3 border rounded">
+              <h5>Kimutatás letöltése</h5>
+              <p class="text-muted small mb-2">
+                  Résztvevőnkénti QSO-lista: dátum (UTC), sáv, mód, operátor. A már
+                  meglévő sáv-mód párosítás ismétlésnek számít, és nem számít bele az
+                  érvényes QSO-kba: a <b>Word</b> változatban az ilyen sor át van húzva,
+                  az <b>Excel</b> változatban külön oszlop jelöli.
+              </p>
+
+              <div class="col-md-3 mb-2">
+                  <label class="form-label" for="summaryMinQso">Minimum érvényes QSO</label>
+                  <input type="number" class="form-control" id="summaryMinQso" min="1" value="3">
+                  <div class="form-text">Ennyi különböző (sáv, mód) párosítás kell. 3 = a diplomát szerzettek.</div>
+              </div>
+
+              <div class="col-md-3 mb-2 d-flex align-items-center">
+                  <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="summaryOnlyHungarian">
+                      <label class="form-check-label" for="summaryOnlyHungarian">Csak magyar (HA/HG) hívójelek</label>
+                  </div>
+              </div>
+
+              <div class="col-md-6 mb-2 d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-outline-primary" id="summaryDocBtn">DOC letöltése</button>
+                  <button type="button" class="btn btn-outline-primary" id="summaryXlsBtn">XLS letöltése</button>
+              </div>
+          </div>
+        </div>
+
         <div class="tab-pane fade" id="tab-db" role="tabpanel" aria-labelledby="tab-db-btn">
           <h3 class="my-3">Adatbázis</h3>
           <div id="dbActionMsg" class="my-2"></div>

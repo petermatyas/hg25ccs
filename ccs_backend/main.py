@@ -27,6 +27,7 @@ import handle_log
 import handle_db
 import diploma
 import qsl
+import qsl_summary_doc_xls
 import country
 import auth
 import geo
@@ -394,9 +395,27 @@ def getUploadTs():
     return handle_db.getUploads()
 
 
+def _upload_time_of(file_entry: dict) -> int:
+    """Egy listaelem feltöltési ideje a rendezéshez.
+
+    Elsősorban az adatbázisból ismert feltöltési időbélyeg. Ha az nincs, a
+    fájlnév végére írt időbélyeg ('<név>_<ts>.<kiterjesztés>', lásd a feltöltő
+    végpontot), végül a fájl módosítási ideje.
+    """
+    if file_entry.get("upload_timestamp"):
+        return int(file_entry["upload_timestamp"])
+
+    stem = os.path.splitext(file_entry.get("filename") or "")[0]
+    suffix = stem.rsplit("_", 1)[-1] if "_" in stem else ""
+    if suffix.isdigit() and len(suffix) >= 9:
+        return int(suffix)
+
+    return int(file_entry.get("modified_at") or 0)
+
+
 @app.get("/api/v1/uploaded_files", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def list_uploaded_files():
-    """A feltöltött naplófájlok listája.
+    """A feltöltött naplófájlok listája, időrendben (a legrégebbi elöl).
 
     Nem csak az adatbázisból: bekerül az a fájl is, ami ott van a logs
     mappában, de nincs (vagy már nincs) hozzá sor a log táblában – pl. mert a
@@ -404,51 +423,124 @@ def list_uploaded_files():
     mappa átnézése csak akkor futott le, ha az adatbázisból SEMMI nem jött, így
     ezek a fájlok nem látszottak és nem lehetett letölteni őket.
     """
-    files = []
-    seen_names = set()
-    seen_paths = set()
-
-    for upload_ts, uploaded_filename in handle_db.getUploads():
-        if uploaded_filename in seen_names:
-            continue
-        seen_names.add(uploaded_filename)
-
-        path = _find_uploaded_log_path(uploaded_filename, upload_ts)
-        if path is not None:
-            seen_paths.add(os.path.realpath(path))
-            stat = os.stat(path)
-            files.append({
-                "filename": uploaded_filename,
-                "size_bytes": stat.st_size,
-                "modified_at": int(stat.st_mtime),
-                "in_database": True,
-            })
-        else:
-            files.append({
-                "filename": uploaded_filename,
-                "size_bytes": 0,
-                "modified_at": 0,
-                "in_database": True,
-            })
-
-    # A mappában lévő, de fent még nem szereplő fájlok. Az adatbázis az eredeti
-    # nevet tárolja, a lemezen viszont '<név>_<ts>.<kiterjesztés>' van, ezért a
-    # feloldott valódi útvonal alapján szűrünk, nem fájlnév szerint.
     log_dir = _uploaded_log_dir()
+
+    # 1) Az adatbázisban ismert feltöltések hozzárendelése a lemezen lévő
+    #    fájlokhoz. A DB az EREDETI nevet tárolja (pl. 'HA1LS.adi'), a lemezen
+    #    viszont időbélyeggel van ('HA1LS_1786287563.adi').
+    uploads_by_path = dict()
+    missing_uploads = list()
+    for upload_ts, uploaded_filename in handle_db.getUploads():
+        path = _find_uploaded_log_path(uploaded_filename, upload_ts)
+        if path is None:
+            missing_uploads.append((uploaded_filename, upload_ts))
+            continue
+        uploads_by_path.setdefault(os.path.realpath(path), (uploaded_filename, upload_ts))
+
+    files = []
+
+    # 2) A lista a MAPPÁBÓL épül, a lemezen lévő névvel – így a táblázat 1:1-ben
+    #    megfelel a logs mappa tartalmának, és minden fájl letölthető. Az
+    #    adatbázis csak kiegészítő adat (eredeti név, feltöltés ideje).
     if os.path.isdir(log_dir):
         for name in sorted(os.listdir(log_dir)):
             path = os.path.join(log_dir, name)
-            if not os.path.isfile(path) or os.path.realpath(path) in seen_paths:
+            if not os.path.isfile(path):
                 continue
+
             stat = os.stat(path)
+            upload = uploads_by_path.get(os.path.realpath(path))
             files.append({
                 "filename": name,
                 "size_bytes": stat.st_size,
                 "modified_at": int(stat.st_mtime),
-                "in_database": False,
+                "in_database": upload is not None,
+                "uploaded_filename": upload[0] if upload else None,
+                "upload_timestamp": upload[1] if upload else None,
             })
 
+    # 3) Amiről az adatbázis tud, de a mappában már nincs meg – hogy a hiánya
+    #    is látszódjon (0 mérettel, letöltés nélkül).
+    seen_names = set()
+    for uploaded_filename, upload_ts in missing_uploads:
+        if uploaded_filename in seen_names:
+            continue
+        seen_names.add(uploaded_filename)
+        files.append({
+            "filename": uploaded_filename,
+            "size_bytes": 0,
+            "modified_at": 0,
+            "in_database": True,
+            "uploaded_filename": uploaded_filename,
+            "upload_timestamp": upload_ts,
+            "missing_on_disk": True,
+        })
+
+    # Időrendben, a legrégebbi feltöltéssel az elején.
+    files.sort(key=_upload_time_of)
     return files
+
+
+@app.get("/api/v1/qso_summary", tags=["summary"], dependencies=[Depends(auth.require_auth)])
+def download_qso_summary(format: str = "xls", min_valid_qso: int = 3, only_hungarian: bool = False):
+    """Résztvevőnkénti QSO-kimutatás letöltése Word (doc) vagy Excel (xls) alakban.
+
+    A tartalom a qsl_summary_doc_xls modulból jön: résztvevőnként a QSO-k
+    (dátum, sáv, mód, operátor), az ismétlődő sáv-mód párosok megjelölve.
+    """
+    fileFormat = (format or "").strip().lower()
+    if fileFormat not in ("doc", "xls"):
+        raise HTTPException(status_code=400, detail="A formátum csak 'doc' vagy 'xls' lehet")
+
+    if min_valid_qso < 1:
+        min_valid_qso = 1
+
+    qsosByParticipant = qsl_summary_doc_xls.getQsosByParticipant(minValidQso=min_valid_qso,
+                                                                 onlyHungarian=only_hungarian)
+
+    extension = "docx" if fileFormat == "doc" else "xlsx"
+    # A generált fájl felülíródik minden kéréskor; a letöltött név viszont a
+    # készítés idejét viseli.
+    path = os.path.join(baseDir, "tmp", f"qso_summary.{extension}")
+    downloadName = f"hg25ccs_qso_kimutatas_{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}"
+
+    if fileFormat == "doc":
+        qsl_summary_doc_xls.generateDoc(qsosByParticipant, path)
+    else:
+        qsl_summary_doc_xls.generateXls(qsosByParticipant, path)
+
+    return FileResponse(path, media_type="application/octet-stream", filename=downloadName)
+
+
+@app.get("/api/v1/uploaded_files_diag", tags=["log"], dependencies=[Depends(auth.require_auth)])
+def uploaded_files_diag():
+    """Diagnosztika: mit lát a backend a logfájlok mappájában.
+
+    Ha az admin oldali listából hiányzik egy fájl, itt derül ki, hogy a backend
+    egyáltalán melyik könyvtárat olvassa (Dockerben ez a CCS_LOGS_DIR / a
+    becsatolt volume), és mi van benne.
+    """
+    log_dir = _uploaded_log_dir()
+    entries = []
+    if os.path.isdir(log_dir):
+        for name in sorted(os.listdir(log_dir)):
+            path = os.path.join(log_dir, name)
+            entries.append({
+                "name": name,
+                "is_file": os.path.isfile(path),
+                "size_bytes": os.path.getsize(path) if os.path.isfile(path) else 0,
+            })
+
+    return {
+        "log_dir": log_dir,
+        "env_ccs_logs_dir": os.environ.get("CCS_LOGS_DIR", ""),
+        "exists": os.path.isdir(log_dir),
+        "entry_count": len(entries),
+        "file_count": sum(1 for i in entries if i["is_file"]),
+        "db_upload_count": len(handle_db.getUploads()),
+        "listed_count": len(list_uploaded_files()),
+        "entries": entries,
+    }
 
 
 @app.get("/api/v1/download_uploaded_file", tags=["log"], dependencies=[Depends(auth.require_auth)])
