@@ -457,27 +457,6 @@ def getAllParticipant(prefix=None):
 
     return sorted(out)
 
-"""def getAllParticipantOccurance():
-    q = session.query(Log.callsign, func.count(Log.callsign).label('pcs')).group_by(Log.callsign).order_by('pcs').all()
-    temp = list()
-    for i in q:
-        temp.append(i)
-    return [list(elem) for elem in temp]"""
-
-"""def getBandsOccurance():
-    q = session.query(Log.band, func.count(Log.band).label('pcs')).group_by(Log.band).order_by('pcs').all()
-    temp = list()
-    for i in q:
-        temp.append(i)
-    return [list(elem) for elem in temp]"""
-
-"""def getModeOccurance():
-    q = session.query(Log.mode, func.count(Log.mode).label('pcs')).group_by(Log.mode).order_by('pcs').all()
-    temp = list()
-    for i in q:
-        temp.append(i)
-    return [list(elem) for elem in temp]"""
-
 def qsoListBandModeByCallsign(callsign):
 
     q = session.query(Log).where(Log.callsign == callsign.upper())
@@ -485,29 +464,7 @@ def qsoListBandModeByCallsign(callsign):
     for i in q:
         temp.append({"band":i.band, "mode":i.mode})
     return temp
-    
-    """qsos = query(callsign)
 
-    res = list()
-    for i in qsos:
-        #print(i)
-        res.append([i["band"], i["mode"]])
-        
-    return res"""
-
-
-"""def validQso(nr, orMore=False):
-    res = list()
-    for callsign in getAllParticipant():
-        qsos = qsoListBandModeByCallsign(callsign)
-        qsos_unique = [list(x) for x in set(tuple(x) for x in qsos)]
-        if orMore == False:
-            if len(qsos_unique) == nr:
-                res.append(callsign)
-        else:
-            if len(qsos_unique) >= nr:
-                res.append(callsign)
-    return res"""
 
 def diplomaDownload(callsign, visitor_hash=None):
     with _db() as s:
@@ -560,10 +517,6 @@ def isBandActive(callsign, band, mode):
         .where(ActiveBand.band == band,
                ActiveBand.mode == mode,
                ActiveBand.end_timestamp_utc == None)
-        #.where(ActiveBand.callsign == callsign,
-        #       ActiveBand.band == band,
-        #       ActiveBand.mode == mode,
-        #       ActiveBand.end_timestamp_utc == None)
     return len(aaa.all()) > 0
 
 def deactivateBand(callsign, band, mode):
