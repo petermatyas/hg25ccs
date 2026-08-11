@@ -415,7 +415,7 @@ def _upload_time_of(file_entry: dict) -> int:
 
 @app.get("/api/v1/uploaded_files", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def list_uploaded_files():
-    """A feltöltött naplófájlok listája, időrendben (a legrégebbi elöl).
+    """A feltöltött naplófájlok listája, fordított időrendben (a legutóbbi elöl).
 
     Nem csak az adatbázisból: bekerül az a fájl is, ami ott van a logs
     mappában, de nincs (vagy már nincs) hozzá sor a log táblában – pl. mert a
@@ -476,8 +476,8 @@ def list_uploaded_files():
             "missing_on_disk": True,
         })
 
-    # Időrendben, a legrégebbi feltöltéssel az elején.
-    files.sort(key=_upload_time_of)
+    # Fordított időrendben: a legutóbbi feltöltés van elöl.
+    files.sort(key=_upload_time_of, reverse=True)
     return files
 
 
