@@ -228,13 +228,24 @@ def getCurrentUtcTs():
     return int(timestamp_utc)
 
 
+def _sameText(column, value):
+    """Kis/nagybetűtől független egyezés egy szöveges oszlopra.
+
+    Nem ilike-kal: az érték tartalmazhat '_' karaktert (pl. DL_HA1DC), amit a
+    LIKE joker karakternek venne, és téves találatot adna.
+    """
+    if value is None:
+        return column.is_(None)
+    return func.lower(column) == str(value).lower()
+
+
 def addLogs(logList:list):
     for log in logList:
         def getValue(key, noValue):
             if key in log:
                 return log[key]
             else:
-                noValue
+                return noValue
 
         callsign = getValue("callsign", "missing")
         mode = getValue("mode", "missing")
@@ -246,16 +257,21 @@ def addLogs(logList:list):
         rst_sent = getValue("rst_sent", "missing")
         rst_rec = getValue("rst_rec", "missing")
         local_operator = getValue("local_operator", "missing")
-        error = getValue("error", "no_error")
+        # Hiba nélküli QSO-nál marad NULL: a naplóparserek csak akkor adnak
+        # "error" kulcsot, ha tényleg volt hiba.
+        error = getValue("error", None)
         
-        queryObj = session.query(Log).where(Log.callsign == log["callsign"], 
-                                            Log.band == log["band"], 
-                                            Log.mode == log["mode"], 
-                                            Log.qth == log["qth"],
-                                            Log.rst_sent == log["rst_sent"],
-                                            Log.rst_rec == log["rst_rec"],
-                                            Log.log_timestamp_utc == log["log_utc_timestamp"],
-                                            Log.local_operator == log["local_operator"]
+        # A duplikátum-szűrés kis/nagybetűtől független: ugyanaz a napló
+        # többször feltöltve más írásmóddal jöhet (pl. local_operator 'ha1wd'
+        # az egyik, 'HA1WD' a másik fájlban), és így korábban újra bekerült.
+        queryObj = session.query(Log).where(_sameText(Log.callsign, callsign),
+                                            _sameText(Log.band, band),
+                                            _sameText(Log.mode, mode),
+                                            _sameText(Log.qth, qth),
+                                            _sameText(Log.rst_sent, rst_sent),
+                                            _sameText(Log.rst_rec, rst_rec),
+                                            Log.log_timestamp_utc == log_timestamp_utc,
+                                            _sameText(Log.local_operator, local_operator)
                                             )
         if queryObj.first() == None:
             l = Log(
