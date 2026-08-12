@@ -17,21 +17,20 @@ FIGYELEM: a backend konténernek KIFELÉ menő internetkapcsolat kell ehhez
 (a MaxMind eléréséhez). Lásd a docker-compose.yml megjegyzését.
 """
 
-import os
 import ipaddress
 
-# Bőbeszédű naplózás a hibakereséshez (CCS_GEOIP_DEBUG=1). Enélkül csak a
-# tényleges lookup-hibákat naplózzuk, a privát IP-ket csendben átugorjuk.
-DEBUG = os.environ.get("CCS_GEOIP_DEBUG", "").strip().lower() in ("1", "true", "yes")
+import config
 
-ACCOUNT_ID = os.environ.get("CCS_GEOIP_ACCOUNT_ID", "").strip()
-LICENSE_KEY = os.environ.get("CCS_GEOIP_LICENSE_KEY", "").strip()
-# Ingyenes GeoLite2 web service: geolite.info. A fizetős GeoIP2 Precision-höz
-# geoip.maxmind.com kellene.
-HOST = os.environ.get("CCS_GEOIP_HOST", "geolite.info").strip() or "geolite.info"
+# Minden beállítás a config.py-ból: fiókadatok, a használt host (ingyenes
+# GeoLite2: geolite.info), a hívás időkorlátja, és a bőbeszédű naplózás
+# kapcsolója (enélkül csak a tényleges lookup-hibákat naplózzuk).
+_settings = config.getGeoip()
 
-# A hívás felső időkorlátja másodpercben (ne blokkolja sokáig a /hit kérést).
-TIMEOUT = float(os.environ.get("CCS_GEOIP_TIMEOUT", "2.0"))
+DEBUG = _settings["debug"]
+ACCOUNT_ID = _settings["account_id"]
+LICENSE_KEY = _settings["license_key"]
+HOST = _settings["host"]
+TIMEOUT = _settings["timeout"]
 
 UNKNOWN = "Ismeretlen"
 

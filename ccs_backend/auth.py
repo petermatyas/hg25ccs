@@ -1,13 +1,11 @@
 """Egyszerű, függőség nélküli admin hitelesítés a CCS backendhez.
 
-A felhasználónév/jelszó párosokat a `users.json` fájl tartalmazza (induláskor
-ebből töltődnek be). Sikeres bejelentkezéskor egy aláírt, lejárati idővel
-ellátott token jön létre (HMAC-SHA256), amit a védett végpontok az
+A felhasználónév/jelszó párosok és a token beállításai a `config.py`-ból jönnek
+(korábban a `users.json`-ból). Sikeres bejelentkezéskor egy aláírt, lejárati
+idővel ellátott token jön létre (HMAC-SHA256), amit a védett végpontok az
 `Authorization: Bearer <token>` fejlécben várnak.
 """
 
-import os
-import json
 import time
 import hmac
 import base64
@@ -15,72 +13,27 @@ import hashlib
 
 from fastapi import HTTPException, Header
 
-baseDir = os.path.dirname(os.path.abspath(__file__))
-USERS_FILE = os.path.join(baseDir, "users.json")
-
-# Token élettartam másodpercben (alapértelmezés: 12 óra).
-TOKEN_TTL = int(os.environ.get("CCS_AUTH_TTL", str(12 * 60 * 60)))
-
-# A tokenek aláírásához használt titkos kulcs. Élesben érdemes a
-# CCS_AUTH_SECRET környezeti változóban beállítani.
-SECRET_KEY = os.environ.get("CCS_AUTH_SECRET", "change-this-ccs-admin-secret")
-
-
-def _load_users():
-    """Felhasználónév -> jelszó páros betöltése a users.json fájlból."""
-    if not os.path.exists(USERS_FILE):
-        print(f"[auth] FIGYELEM: nem található a users.json ({USERS_FILE})")
-        return {}
-
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    users = {}
-    for entry in data.get("users", []):
-        username = entry.get("username")
-        password = entry.get("password")
-        if username and password is not None:
-            users[str(username).strip().lower()] = str(password)
-    return users
-
-
-def get_usernames():
-    """A users.json-ból származó felhasználónevek listája."""
-    if not os.path.exists(USERS_FILE):
-        return []
-
-    with open(USERS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    usernames = []
-    for entry in data.get("users", []):
-        username = entry.get("username")
-        if username is not None:
-            usernames.append(str(username).strip())
-
-    return sorted(usernames, key=lambda value: value.lower())
-
-
-_USERS = _load_users()
+import config
 
 
 def verify_credentials(username, password):
-    """Igaz, ha a felhasználónév/jelszó páros szerepel a users.json-ban."""
+    """Igaz, ha a felhasználónév/jelszó páros szerepel a beállításokban."""
     normalized_username = str(username).strip().lower()
-    stored = _USERS.get(normalized_username)
+    stored = config.getUsers().get(normalized_username)
     if stored is None:
         return False
     return hmac.compare_digest(stored.lower(), str(password).lower())
 
 
 def _sign(payload):
-    sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).digest()
+    secretKey = config.getAuthSecret()
+    sig = hmac.new(secretKey.encode(), payload.encode(), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(sig).decode().rstrip("=")
 
 
 def create_token(username):
     """Aláírt token létrehozása a felhasználónak, lejárati idővel."""
-    expiry = int(time.time()) + TOKEN_TTL
+    expiry = int(time.time()) + config.getAuthTtl()
     payload = f"{username}:{expiry}"
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode().rstrip("=")
     return f"{payload_b64}.{_sign(payload)}"

@@ -1,6 +1,8 @@
 import re
 import datetime
 
+import config
+
 
 def freqToBand(freq):
     # frequency [Hz]
@@ -445,7 +447,13 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     return res
 
 
-def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign="hg25ccs"):
+def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
+    # A saját (aktiválási) hívójel a konfigurációból jön, hogy ne kelljen minden
+    # hívási helyen megadni – erről ismerjük fel, melyik naplómező NEM a helyi
+    # operátor.
+    if local_callsign is None:
+        local_callsign = config.getActivationCallsign()
+
     extension = filePath.split(".")[-1]
     if extension.lower() in ["edi"]:
         logLines = process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)

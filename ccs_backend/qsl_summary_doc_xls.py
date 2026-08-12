@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timezone
 
+import config
 import handle_db
 from handle_db import Log
 
@@ -90,7 +91,7 @@ def _validQsoNr(qsos):
     return sum(1 for qso in qsos if not qso["repeated"])
 
 
-def generateDoc(qsosByParticipant, outPath, title="HG25CCS – QSO összesítő"):
+def generateDoc(qsosByParticipant, outPath, title=None):
     """Word (.docx) dokumentum a résztvevők QSO-iból.
 
     Résztvevőnként egy cím (hívójel, QSO-szám, érvényes QSO-szám) és alatta a
@@ -98,9 +99,14 @@ def generateDoc(qsosByParticipant, outPath, title="HG25CCS – QSO összesítő"
 
     Az ismétlés (már meglévő sáv-mód páros) itt nem külön oszlop: az érintett
     sor át van húzva.
+
+    A cím alapértelmezésben az aktiválás hívójelével készül (konfigurációból).
     """
     from docx import Document
     from docx.shared import Pt
+
+    if title is None:
+        title = f"{config.getActivationCallsign().upper()} – QSO összesítő"
 
     document = Document()
     document.add_heading(title, level=0)

@@ -4,6 +4,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 from fpdf import FPDF
 
+import config
 
 #import handle_db
 
@@ -66,7 +67,7 @@ def generate_fpdf(callsign, out_path, lang="en"):
     pdf.set_xy(W/2-strWidth/2, 30)
     pdf.cell(0, 0, callsign.upper())
 
-    pdf.set_title("HG25CCS")
+    pdf.set_title(config.getActivationCallsign().upper())
 
     # A cél mappa (pl. .../diplomas) nem feltétlenül létezik – az fpdf nem
     # hozza létre a hiányzó szülőkönyvtárat, ezért itt biztosítjuk.
@@ -114,7 +115,7 @@ def generate_charset_preview(out_path, font_size=80, cols=8):
         pdf.set_xy(cx - strWidth / 2, cy)
         pdf.cell(0, 0, ch)
 
-    pdf.set_title("HG25CCS betűkészlet minta")
+    pdf.set_title(f"{config.getActivationCallsign().upper()} betűkészlet minta")
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
     pdf.output(out_path)

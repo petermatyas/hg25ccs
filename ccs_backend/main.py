@@ -23,6 +23,7 @@ import re
 
 from dotenv import load_dotenv
 
+import config
 import handle_log
 import handle_db
 import diploma
@@ -49,22 +50,20 @@ activeBandList = list()
 activeBandListLog = list()
 baseDir = os.path.dirname(os.path.realpath(__file__))
 
-bands     = ["70cm", "2m", "4m", "6m", "10m", "12m", "15m", "17m", "20m", "30m", "40m", "60m", "80m", "160m"]
-modes     = ["CW", "SSB", "FM", "DIGI"]
-operators = auth.get_usernames()
+# Minden beállítás a config.py-ból jön. A listák másolatok, mert az admin
+# végpontok futás közben bővíthetik őket (a config maga változatlan marad).
+bands     = config.getBands()
+modes     = config.getModes()
+operators = config.getOperators()
 
-activationCallsign = "hg25ccs"
+activationCallsign = config.getActivationCallsign()
 
-extraDiplomaList = []
+extraDiplomaList = config.getExtraDiplomaList()
 
 # A látogató-azonosító hash sózásához használt titok. STABIL (nem forgó) só,
 # hogy a "visszatérő vs. új" napok között is működjön. Nyers IP-t sosem
-# tárolunk, csak az ebből képzett hasht. Élesben állítsd be a
-# CCS_ANALYTICS_SALT környezeti változót (openssl rand -hex 32).
-ANALYTICS_SALT = os.environ.get("CCS_ANALYTICS_SALT", "change-this-ccs-analytics-salt")
-
-modes.sort()
-operators.sort(key=lambda value: value.lower())
+# tárolunk, csak az ebből képzett hasht.
+ANALYTICS_SALT = config.getAnalyticsSalt()
 
 # A futáshoz szükséges könyvtárak létrehozása, ha még nem léteznek.
 # (A log-feltöltés a "logs", a diploma-generálás a "diplomas" mappába ír.)
@@ -294,9 +293,7 @@ async def upload_log_file(file: UploadFile, uploadUserCallsign: Union[str, None]
     }
 
 def _uploaded_log_dir() -> str:
-    configured_dir = os.environ.get("CCS_LOGS_DIR", "").strip()
-    log_dir = configured_dir or os.path.join(baseDir, "logs")
-    log_dir = os.path.abspath(log_dir)
+    log_dir = config.getLogsDir()
     os.makedirs(log_dir, exist_ok=True)
     return log_dir
 
@@ -482,16 +479,19 @@ def list_uploaded_files():
 
 
 @app.get("/api/v1/qso_summary", tags=["summary"], dependencies=[Depends(auth.require_auth)])
-def download_qso_summary(format: str = "xls", min_valid_qso: int = 3, only_hungarian: bool = False):
+def download_qso_summary(format: str = "xls", min_valid_qso: Optional[int] = None, only_hungarian: bool = False):
     """Résztvevőnkénti QSO-kimutatás letöltése Word (doc) vagy Excel (xls) alakban.
 
     A tartalom a qsl_summary_doc_xls modulból jön: résztvevőnként a QSO-k
     (dátum, sáv, mód, operátor), az ismétlődő sáv-mód párosok megjelölve.
+    A min_valid_qso alapértelmezése a diploma feltétele a beállításokból.
     """
     fileFormat = (format or "").strip().lower()
     if fileFormat not in ("doc", "xls"):
         raise HTTPException(status_code=400, detail="A formátum csak 'doc' vagy 'xls' lehet")
 
+    if min_valid_qso is None:
+        min_valid_qso = config.getMinValidQso()
     if min_valid_qso < 1:
         min_valid_qso = 1
 
@@ -502,7 +502,8 @@ def download_qso_summary(format: str = "xls", min_valid_qso: int = 3, only_hunga
     # A generált fájl felülíródik minden kéréskor; a letöltött név viszont a
     # készítés idejét viseli.
     path = os.path.join(baseDir, "tmp", f"qso_summary.{extension}")
-    downloadName = f"hg25ccs_qso_kimutatas_{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}"
+    downloadName = (f"{config.getActivationCallsign().lower()}_qso_kimutatas_"
+                    f"{datetime.now().strftime('%Y%m%d_%H%M')}.{extension}")
 
     if fileFormat == "doc":
         qsl_summary_doc_xls.generateDoc(qsosByParticipant, path)
@@ -680,7 +681,7 @@ def add_mode(newMode:str):
 
 @app.get("/api/v1/operators", tags=["operator"], dependencies=[Depends(auth.require_auth)])
 def get_operators():
-    return sorted(auth.get_usernames(), key=lambda value: value.lower())
+    return config.getOperators()
 
 @app.post("/api/v1/operator", tags=["operator"], dependencies=[Depends(auth.require_auth)])
 def add_operator(newOperator:str):
@@ -705,9 +706,10 @@ def generate_diploma(callsign, lang="en", request: Request = None):
     qsos_unique = list(set([(i["band"], i["mode"]) for i in qsos]))
     valid_qsos_nr = len(qsos_unique)
 
-    print("érvényes qso-k:", qsos_unique, "  valid:", valid_qsos_nr >= 3)
+    minValidQso = config.getMinValidQso()
+    print("érvényes qso-k:", qsos_unique, "  valid:", valid_qsos_nr >= minValidQso)
 
-    if valid_qsos_nr >= 3 or callsign.lower() in extraDiplomaList:
+    if valid_qsos_nr >= minValidQso or callsign.lower() in extraDiplomaList:
         #diplomaPath = f"./diplomas/diploma_{callsign.lower()}.pdf"
         lang = "en"
         callsign = callsign.replace("/", "_")
@@ -742,7 +744,8 @@ def download_diploma(callsign, lang="en", request: Request = None):
     if os.path.exists(diplomaPath):
         vh = _visitor_hash(request) if request is not None else None
         handle_db.diplomaDownload(callsign, visitor_hash=vh)
-        return FileResponse(diplomaPath, media_type='application/octet-stream',filename=f"HG25CCS.pdf")
+        return FileResponse(diplomaPath, media_type='application/octet-stream',
+                            filename=f"{config.getActivationCallsign().upper()}.pdf")
     else:
         return {"error":"not exists"}
 
