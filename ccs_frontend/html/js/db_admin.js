@@ -53,15 +53,17 @@ function summaryMsg(text, isError) {
 // QSO kimutatás letöltése. A visszajelzés a saját fülén jelenik meg, ezért nem
 // a downloadWithAuth()-ot használja (az az Adatbázis fülre írna).
 function downloadQsoSummary(format) {
-    const minQsoInput = document.getElementById("summaryMinQso");
+    const scopeInput = document.getElementById("summaryScope");
     const onlyHuInput = document.getElementById("summaryOnlyHungarian");
 
-    const minValidQso = Math.max(1, parseInt(minQsoInput ? minQsoInput.value : "3", 10) || 1);
+    // A küszöböt nem a felület adja meg: "all" -> 1 érvényes QSO,
+    // "diploma" -> a beállításokban rögzített diplomahatár (3).
+    const scope = scopeInput && scopeInput.value === "all" ? "all" : "diploma";
     const onlyHungarian = onlyHuInput ? onlyHuInput.checked : false;
 
     const url = `${PROTO}${HOST}${BACKENDPORT}/api/v1/qso_summary`
         + `?format=${encodeURIComponent(format)}`
-        + `&min_valid_qso=${minValidQso}`
+        + `&scope=${scope}`
         + `&only_hungarian=${onlyHungarian}`;
     const filename = `hg25ccs_qso_kimutatas_${tsString()}.${format === "doc" ? "docx" : "xlsx"}`;
 
@@ -270,6 +272,14 @@ function bindDbAdmin() {
     document.getElementById("dbDownloadBtn").addEventListener("click", function() {
         downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_db`, `logs_${tsString()}.sqlite3`);
     });
+
+    // A logs mappa összes naplófájlja egy zip-ben.
+    const allLogsBtn = document.getElementById("downloadAllLogsBtn");
+    if (allLogsBtn) {
+        allLogsBtn.addEventListener("click", function() {
+            downloadWithAuth(`${PROTO}${HOST}${BACKENDPORT}/api/v1/download_logs`, `logs_${tsString()}.zip`);
+        });
+    }
 
     // 2) Teljes adatbázis feltöltése (MEGERŐSÍTÉSSEL)
     document.getElementById("dbUploadBtn").addEventListener("click", function() {
