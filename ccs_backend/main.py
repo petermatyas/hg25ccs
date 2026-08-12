@@ -18,7 +18,7 @@ import os
 import json
 #import threading
 import hashlib
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_DEFLATED
 import re
 
 from dotenv import load_dotenv
@@ -479,21 +479,25 @@ def list_uploaded_files():
 
 
 @app.get("/api/v1/qso_summary", tags=["summary"], dependencies=[Depends(auth.require_auth)])
-def download_qso_summary(format: str = "xls", min_valid_qso: Optional[int] = None, only_hungarian: bool = False):
+def download_qso_summary(format: str = "xls", scope: str = "diploma", only_hungarian: bool = False):
     """Résztvevőnkénti QSO-kimutatás letöltése Word (doc) vagy Excel (xls) alakban.
 
     A tartalom a qsl_summary_doc_xls modulból jön: résztvevőnként a QSO-k
     (dátum, sáv, mód, operátor), az ismétlődő sáv-mód párosok megjelölve.
-    A min_valid_qso alapértelmezése a diploma feltétele a beállításokból.
+
+    A kimutatás köre (scope) nem szabadon állítható küszöb, csak két érték:
+    'all'     – mindenki, akinek van legalább egy érvényes QSO-ja,
+    'diploma' – csak a diplomát szerzettek (a beállított küszöb, alapból 3).
     """
     fileFormat = (format or "").strip().lower()
     if fileFormat not in ("doc", "xls"):
         raise HTTPException(status_code=400, detail="A formátum csak 'doc' vagy 'xls' lehet")
 
-    if min_valid_qso is None:
-        min_valid_qso = config.getMinValidQso()
-    if min_valid_qso < 1:
-        min_valid_qso = 1
+    summaryScope = (scope or "").strip().lower()
+    if summaryScope not in ("all", "diploma"):
+        raise HTTPException(status_code=400, detail="A kör csak 'all' vagy 'diploma' lehet")
+
+    min_valid_qso = 1 if summaryScope == "all" else config.getMinValidQso()
 
     qsosByParticipant = qsl_summary_doc_xls.getQsosByParticipant(minValidQso=min_valid_qso,
                                                                  onlyHungarian=only_hungarian)
@@ -897,26 +901,30 @@ def downloadDb():
     return FileResponse(path, media_type='application/octet-stream',filename=fileName)
 
 
-@app.get("/api/v1/download_logs", tags=["debug"], dependencies=[Depends(auth.require_auth)])
+@app.get("/api/v1/download_logs", tags=["log"], dependencies=[Depends(auth.require_auth)])
 def downloadLogs():
-    #baseDir = os.path.dirname(os.path.abspath(__file__))
-    inputPath = os.path.join(baseDir, "logs")
+    """A logs mappa összes feltöltött naplófájlja egyetlen zip-ben.
 
-    dateString = datetime.now().strftime("%Y%m%d%H%M%S")
+    A fájlok a zip gyökerébe kerülnek (arcname), tehát kicsomagoláskor nem jön
+    létre könyvtárszerkezet. A zip a tmp mappába készül, nem a munkakönyvtárba.
     """
-    TODO remove all zipfile
-    """
+    logDir = _uploaded_log_dir()
 
-    outFileName = f"logs_{dateString}.zip"
-    outFilePath = os.path.join(outFileName)
+    outFileName = f"{config.getActivationCallsign().lower()}_logs_{datetime.now().strftime('%Y%m%d_%H%M')}.zip"
+    outFilePath = os.path.join(baseDir, "tmp", outFileName)
+    os.makedirs(os.path.dirname(outFilePath), exist_ok=True)
 
-    with ZipFile(outFilePath,'w') as zip:
-        # writing each file one by one
-        for file in os.listdir(inputPath):
-            #print(file)
-            zip.write(os.path.join(inputPath, file))
+    fileNr = 0
+    with ZipFile(outFilePath, "w", compression=ZIP_DEFLATED) as zipFile:
+        for name in sorted(os.listdir(logDir)):
+            path = os.path.join(logDir, name)
+            if not os.path.isfile(path):
+                continue
+            zipFile.write(path, arcname=name)
+            fileNr += 1
 
-    return FileResponse(outFilePath, media_type='application/octet-stream',filename=outFileName)
+    print(f"logfájlok zip-be csomagolva: {fileNr} db -> {outFilePath}")
+    return FileResponse(outFilePath, media_type="application/zip", filename=outFileName)
 
 def _remove_pdf_files(path):
     removed_files = []
