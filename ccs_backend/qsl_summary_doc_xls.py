@@ -84,7 +84,8 @@ def _qsoRow(qso):
     return (formatTimestamp(qso["datetime"]),
             qso["band"] or "-",
             qso["mode"] or "-",
-            (qso["operator"] or "-").upper())
+            qso.get("rst_sent") or "-",
+            (qso.get("operator") or "-").upper())
 
 
 def _validQsoNr(qsos):
@@ -203,11 +204,11 @@ if __name__ == "__main__":
         validNr = sum(1 for qso in qsos if not qso["repeated"])
         print(f"{callsign} ({len(qsos)} qso, {validNr} érvényes)")
         for qso in qsos:
-            print(f"    {formatTimestamp(qso['datetime']):16s} {qso['band'] or '-':6s} {qso['mode'] or '-':6s} {qso['operator'].upper() or '-':8s}"
+            print(f"    {formatTimestamp(qso['datetime']):16s} {qso['band'] or '-':6s} {qso['mode'] or '-':6s} {qso['rst_sent'] or '-':6s} {qso['operator'].upper() or '-':8s}"
                   f"{'  ismétlés' if qso['repeated'] else ''}")
 
-    print()
-    print("doc:", generateDoc(qsosByParticipant, "./tmp/qso_summary.docx"))
-    print("xls:", generateXls(qsosByParticipant, "./tmp/qso_summary.xlsx"))
+    #print()
+    #print("doc:", generateDoc(qsosByParticipant, "./tmp/qso_summary.docx"))
+    #print("xls:", generateXls(qsosByParticipant, "./tmp/qso_summary.xlsx"))
 
 
