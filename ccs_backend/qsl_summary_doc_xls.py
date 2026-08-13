@@ -81,11 +81,15 @@ REPEAT_HEADER = "Ismétlés"
 
 def _qsoRow(qso):
     """Egy QSO a táblázatok soraként, a konzolos kiírással azonos tartalommal."""
+    # Támogatunk több lehetséges kulcsnevet a RST és az operátor számára,
+    # mert a különböző lekérdezések/endpointok eltérő kulcsneveket használhatnak.
+    rst_val = qso.get("rst_sent") or qso.get("rst") or qso.get("rst_sent_str") or "-"
+    op_val = qso.get("operator") or qso.get("local_operator") or qso.get("operator_name") or "-"
     return (formatTimestamp(qso["datetime"]),
             qso["band"] or "-",
             qso["mode"] or "-",
-            qso.get("rst_sent") or "-",
-            (qso.get("operator") or "-").upper())
+            rst_val,
+            (op_val or "-").upper())
 
 
 def _validQsoNr(qsos):
