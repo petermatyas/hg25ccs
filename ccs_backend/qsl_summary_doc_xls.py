@@ -38,13 +38,13 @@ def getQsosByParticipant(minValidQso=1, onlyHungarian=False):
     Visszatérés: {hívójel: [{"band":..., "mode":..., "operator":...}, ...]}
     """
     with handle_db._db() as s:
-        rows = (s.query(Log.log_timestamp_utc,Log.callsign, Log.band, Log.mode, Log.local_operator)
+        rows = (s.query(Log.log_timestamp_utc,Log.callsign, Log.band, Log.mode, Log.rst_sent, Log.local_operator)
                  .order_by(Log.log_timestamp_utc)
                  .all())
 
     qsos = dict()
     seenBandModes = dict()
-    for timestamp, callsign, band, mode, operator in rows:
+    for timestamp, callsign, band, mode, rst_sent, operator in rows:
         core = handle_db._normalize_callsign(callsign)
         if not core:
             continue
@@ -62,6 +62,7 @@ def getQsosByParticipant(minValidQso=1, onlyHungarian=False):
         qsos.setdefault(core, []).append({"datetime": int(timestamp),
                                           "band": band,
                                           "mode": mode,
+                                          "rst_sent": rst_sent,
                                           "operator": operator,
                                           "repeated": repeated})
 
@@ -74,7 +75,7 @@ def getQsosByParticipant(minValidQso=1, onlyHungarian=False):
 # A QSO-táblázat fejléce – a konzolra írt oszlopokkal megegyezően. Az ismétlés
 # jelölése formátumonként más: az XLS külön oszlopban írja ki, a DOC áthúzza az
 # érintett sort.
-QSO_HEADER = ("Dátum (UTC)", "Sáv", "Mód", "Operátor")
+QSO_HEADER = ("Dátum (UTC)", "Sáv", "Mód", "RST küldött", "Operátor")
 REPEAT_HEADER = "Ismétlés"
 
 
