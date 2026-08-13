@@ -239,13 +239,53 @@
           <div class="row">
               <h4>Statisztika</h4>
               <div class="col">
-                  <p>Összes QSO: <span id="nr_of_qso"></span></p>
-                  <p>Részvevők: <span id="nr_of_participants"></span></p>
-                  <p>1 érvényes QSO: <span id="1_valid_qso"></span></p>
-                  <p>2 érvényes QSO: <span id="2_valid_qso"></span></p>
-                  <p>Diplomát szerzett: <span id="nr_of_valid_diploma"></span></p>
-                  <p>Letöltött diplomák: <span id="downloaded_diploma_nr"></span></p>
-                  <p>Országok száma: <span id="nr_of_countries"></span></p>
+                  <h5>Éves összehasonlítás</h5>
+                  <table class="table table-sm" id="yearStatsTable">
+                      <thead>
+                          <tr>
+                              <th>Mutató</th>
+                              <th>2026</th>
+                              <th>2025</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          <tr>
+                              <td>Összes QSO</td>
+                              <td id="y2026_nr_of_qso">–</td>
+                              <td id="y2025_nr_of_qso">2500</td>
+                          </tr>
+                          <tr>
+                              <td>Diplomát szerzett</td>
+                              <td id="y2026_nr_of_valid_diploma">–</td>
+                              <td id="y2025_nr_of_valid_diploma">157</td>
+                          </tr>
+                          <tr>
+                              <td>Országok száma</td>
+                              <td id="y2026_nr_of_countries">–</td>
+                              <td id="y2025_nr_of_countries">64</td>
+                          </tr>
+                          <tr>
+                              <td>Részvevők</td>
+                              <td id="y2026_participants">–</td>
+                              <td id="y2025_participants"></td>
+                          </tr>
+                          <tr>
+                              <td>1 érvényes QSO</td>
+                              <td id="y2026_1_valid_qso">–</td>
+                              <td id="y2025_1_valid_qso"></td>
+                          </tr>
+                          <tr>
+                              <td>2 érvényes QSO</td>
+                              <td id="y2026_2_valid_qso">–</td>
+                              <td id="y2025_2_valid_qso"></td>
+                          </tr>
+                          <tr>
+                              <td>Letöltött diplomák</td>
+                              <td id="y2026_downloaded_diploma_nr">–</td>
+                              <td id="y2025_downloaded_diploma_nr"></td>
+                          </tr>
+                      </tbody>
+                  </table>
               </div>
               <div class="col">
                   <table class="table table-sm"id="statBandModeTableId">
@@ -266,8 +306,7 @@
                               <th scope="col">60m</th>
                               <th scope="col">80m</th>
                               <th scope="col">160m</th>
-                              <th scope="col">egyéb</th>
-                              <th scope="col">hiba</th>
+                              <th scope="col">Összeg</th>
                           </tr>
                       </thead>
                       <tbody>
@@ -289,6 +328,20 @@
                               </tr>
                           </thead>
                           <tbody id="diploma"></tbody>
+                      </table>
+                  </div>
+              </div>
+              <div class="col-md-5">
+                  <h4>2 QSO-t szerzettek</h4>
+                  <div style="max-height: 320px; overflow:auto;">
+                      <table class="table table-sm table-striped mb-0" id="twoQsoTable">
+                          <thead>
+                              <tr>
+                                  <th scope="col">Hívójel</th>
+                                  <th scope="col">QSL letöltve (2-ből)</th>
+                              </tr>
+                          </thead>
+                          <tbody id="twoQso"></tbody>
                       </table>
                   </div>
               </div>

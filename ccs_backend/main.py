@@ -812,6 +812,7 @@ def statistics():
     valid_qso_2 = list()
     valid_qso_3_or_more = list()
     valid_diploma_details = list()
+    two_qso_details = list()
     modeBandTable = dict()
 
 
@@ -830,6 +831,7 @@ def statistics():
     nrOfQsos = 0
     countryCounts = {}
     participants = handle_db.getAllParticipant()
+    nr_of_hungarian = sum(1 for p in participants if isinstance(p, str) and p.upper().startswith(("HA", "HG")))
 
     for callsign in participants:
         logs = handle_db.query(callsign)
@@ -858,6 +860,24 @@ def statistics():
             valid_qso_1.append(callsign)
         elif len(aa) == 2:
             valid_qso_2.append(callsign)
+            # Build details: for the two distinct (band,mode) pairs, pick one
+            # representative QSO timestamp per pair (first seen) and count how
+            # many of those have QSL downloads.
+            distinct_pairs = set(aa)
+            pair_first_ts = {}
+            for i in logs:
+                key = (i["band"], i["mode"])
+                if key in distinct_pairs and key not in pair_first_ts:
+                    pair_first_ts[key] = i["timestamp"]
+
+            rep_ts = set(pair_first_ts.values())
+            downloaded_ts = set(handle_db.getDownloadedQslTimestamps(callsign))
+            qsl_downloaded_for_pairs = len(rep_ts & downloaded_ts)
+            two_qso_details.append({
+                "callsign": callsign,
+                "qsl_downloaded": qsl_downloaded_for_pairs,
+                "qsl_total": len(distinct_pairs),
+            })
         else:
             valid_qso_3_or_more.append(callsign)
             # Diplomát szerzett hívójel részletei: letöltötte-e a diplomát,
@@ -877,9 +897,11 @@ def statistics():
     stat = {
         "nr_of_qso": nrOfQsos,
             "participanst_nr": len(participants),
+            "nr_of_hungarian": nr_of_hungarian,
             "modeBand": modeBandTable,
             "1validQso": valid_qso_1,
             "2validQso": valid_qso_2,
+            "twoQsoDetails": two_qso_details,
             "validDiploma": valid_qso_3_or_more,
             "validDiplomaDetails": valid_diploma_details,
             "downlodedDiplomaNr": downloadedDiplomas_nr,

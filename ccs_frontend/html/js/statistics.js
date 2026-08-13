@@ -252,13 +252,26 @@ function fillStats() {
     })
     .then((data) => {
         console.log(data);
-        document.getElementById("nr_of_qso").innerHTML = data["nr_of_qso"];
-        document.getElementById("nr_of_participants").innerHTML = data["participanst_nr"];
-        document.getElementById("1_valid_qso").innerHTML = data["1validQso"].length;
-        document.getElementById("2_valid_qso").innerHTML = data["2validQso"].length;
-        document.getElementById("nr_of_valid_diploma").innerHTML = data["validDiploma"].length;
-        document.getElementById("downloaded_diploma_nr").innerHTML = data["downlodedDiplomaNr"];
-        document.getElementById("nr_of_countries").innerHTML = data["nr_of_countries"];
+        // Fill 2026 (current) and leave 2035 empty; 2025 has some static values.
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = (val === undefined || val === null) ? "" : val; };
+
+        // 2026 (from backend)
+        set("y2026_nr_of_qso", data["nr_of_qso"] || 0);
+        set("y2026_nr_of_valid_diploma", (data["validDiploma"] || []).length);
+        set("y2026_nr_of_countries", data["nr_of_countries"] || 0);
+        set("y2026_participants", data["participanst_nr"] || 0);
+        set("y2026_1_valid_qso", (data["1validQso"] || []).length);
+        set("y2026_2_valid_qso", (data["2validQso"] || []).length);
+        set("y2026_downloaded_diploma_nr", data["downlodedDiplomaNr"] || 0);
+
+        // 2025: some fixed historical values (others left blank)
+        // y2025_* fields for QSO/diploma/countries were set in HTML; set others to blank
+        set("y2025_participants", "");
+        set("y2025_1_valid_qso", "");
+        set("y2025_2_valid_qso", "");
+        set("y2025_downloaded_diploma_nr", "");
+
+        // No 2035 column — nothing to clear.
 
 
         //document.getElementById("1qso").innerText = data["1validQso"].join(" ")
@@ -285,38 +298,59 @@ function fillStats() {
             });
         }
 
+        // 2-QSO participants table
+        const twoQsoBody = document.getElementById("twoQso");
+        if (twoQsoBody) {
+            twoQsoBody.innerHTML = "";
+            const twoDetails = data.twoQsoDetails || [];
+            twoDetails.forEach(d => {
+                const qslCell = (d.qsl_total === undefined) ? "–" : `${d.qsl_downloaded} / ${d.qsl_total}`;
+                twoQsoBody.innerHTML += `<tr><td>${d.callsign}</td><td>${qslCell}</td></tr>`;
+            });
+            applyCollapsibleRows(twoQsoBody);
+        }
+
         removeTable("#statBandModeTableId");
         tableBody = $("#statBandModeTableId")
 
 
         let keys1 = Object.keys(data.modeBand)
+
+        const bands = ["70cm","2m","4m","6m","10m","12m","15m","17m","20m","30m","40m","60m","80m","160m"];
+        const columnTotals = {};
+        bands.forEach(b => columnTotals[b] = 0);
+        let grandTotal = 0;
+
         for (let i=0; i<keys1.length; i++) {
+            let d = data.modeBand[keys1[i]] || {};
+            let html = `<tr>`;
+            html += `<td>${keys1[i]}</td>`;
 
-            let d = data.modeBand[keys1[i]]
-            console.log(d)
-            let html = `<tr>`
-            html += `<td>${keys1[i]}</td>`
-            html += `<td>${d["70cm"]}</td>`
-            html += `<td>${d["2m"]}</td>`
-            html += `<td>${d["4m"]}</td>`
-            html += `<td>${d["6m"]}</td>`
-            html += `<td>${d["10m"]}</td>`
-            html += `<td>${d["12m"]}</td>`
-            html += `<td>${d["15m"]}</td>`
-            html += `<td>${d["17m"]}</td>`
-            html += `<td>${d["20m"]}</td>`
-            html += `<td>${d["30m"]}</td>`
-            html += `<td>${d["40m"]}</td>`
-            html += `<td>${d["60m"]}</td>`
-            html += `<td>${d["80m"]}</td>`
-            html += `<td>${d["160m"]}</td>`
-            html += `<td>${d["other"]}</td>`
-            html += `<td>${d["error"]}</td>`
+            let rowSum = 0;
+            bands.forEach(b => {
+                const v = Number(d[b] || 0);
+                rowSum += v;
+                columnTotals[b] += v;
+                const disp = (v === 0) ? '-' : v;
+                html += `<td>${disp}</td>`;
+            });
 
-            html += `</tr>`
-            tableBody.append(html)
-
+            const rowDisp = (rowSum === 0) ? '-' : rowSum;
+            html += `<td>${rowDisp}</td>`;
+            grandTotal += rowSum;
+            html += `</tr>`;
+            tableBody.append(html);
         }
+
+        // Append totals row
+        let totalsHtml = `<tr class="table-secondary fw-bold"><td>Összesen</td>`;
+        bands.forEach(b => {
+            const cdisp = (columnTotals[b] === 0) ? '-' : columnTotals[b];
+            totalsHtml += `<td>${cdisp}</td>`;
+        });
+        const gdisp = (grandTotal === 0) ? '-' : grandTotal;
+        totalsHtml += `<td>${gdisp}</td></tr>`;
+        tableBody.append(totalsHtml);
 
         // Ország statisztika (a backend rekordszám szerint csökkenő sorrendben adja).
         // Az első COUNTRY_LIMIT sor látszik, a többi elrejtve készül el, és a
