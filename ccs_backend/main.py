@@ -898,7 +898,15 @@ def downloadDb():
     dateString = datetime.now().strftime("%Y%m%d%H%M%S")
     fileName = f"logs_{dateString}.sqlite3"
 
-    return FileResponse(path, media_type='application/octet-stream',filename=fileName)
+    # Ensure any WAL/SHM contents are checkpointed into the main DB file
+    try:
+        # Use centralized implementation in handle_db so the DB path is canonical
+        handle_db.checkpoint_wal()
+    except Exception as e:
+        # Don't fail the download on checkpoint errors; log for diagnostics
+        print(f"WAL checkpoint failed: {e}")
+
+    return FileResponse(path, media_type='application/octet-stream', filename=fileName)
 
 
 @app.get("/api/v1/download_logs", tags=["log"], dependencies=[Depends(auth.require_auth)])

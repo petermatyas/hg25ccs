@@ -188,12 +188,31 @@ def _migrate_schema():
     })
     add_missing("diplomaDownload", {"visitor_hash": "TEXT"})
     add_missing("qslDownload", {"visitor_hash": "TEXT"})
-
     conn.commit()
     conn.close()
 
 
 _migrate_schema()
+
+
+def checkpoint_wal():
+    """Checkpoint WAL/SHM into the main DB file.
+
+    Returns True on success, False on failure. Uses the module-level
+    `databasePath` defined above so callers don't need to know the path.
+    """
+    import sqlite3
+    try:
+        conn = sqlite3.connect(databasePath)
+        try:
+            conn.execute("PRAGMA wal_checkpoint(FULL);")
+            conn.commit()
+        finally:
+            conn.close()
+        return True
+    except Exception as e:
+        print(f"[handle_db] WAL checkpoint failed: {e}")
+        return False
 
 
 Session = sessionmaker(bind=engine)
