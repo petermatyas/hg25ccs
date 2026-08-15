@@ -48,7 +48,7 @@ def freqToBand(freq):
     else:
         return "error"
 
-def toUtcTimestamp(dateStr, timeStr, dateFormat):
+def toUtcTimestamp(dateStr:str, timeStr:str, dateFormat:str, timeFormat:str=None):
     """A napló dátum + idő mezőjéből UTC időbélyeg.
 
     Az idő 4 (HHMM) és 6 (HHMMSS) jegyű alakban is érkezhet – az ADIF szabvány
@@ -60,20 +60,20 @@ def toUtcTimestamp(dateStr, timeStr, dateFormat):
     datetime.timestamp() egyébként a GÉP helyi idejét venné alapul, és a
     beolvasott idő a futtató környezet időzónájától függően csúszna el.
     """
-    timeDigits = "".join(ch for ch in str(timeStr) if ch.isdigit())
-    if len(timeDigits) == 4:
-        timeFormat = "%H%M"
-    elif len(timeDigits) == 6:
-        timeFormat = "%H%M%S"
-    else:
-        raise ValueError(f"ismeretlen idő formátum: {timeStr}")
+    if timeFormat == None:
+        timeDigits = "".join(ch for ch in str(timeStr) if ch.isdigit())
+        if len(timeDigits) == 4:
+            timeFormat = "%H%M"
+        elif len(timeDigits) == 6:
+            timeFormat = "%H%M%S"
+        else:
+            raise ValueError(f"ismeretlen idő formátum: {timeStr}")
 
-    dt = datetime.datetime.strptime(str(dateStr) + timeDigits, dateFormat + timeFormat)
+    dt = datetime.datetime.strptime(str(dateStr) + str(timeStr), dateFormat + timeFormat)
     return dt.replace(tzinfo=datetime.timezone.utc).timestamp()
 
 
 def clearCallsign(callsign):
-
     if callsign.upper().endswith("/P"):
         callsign = callsign[:-2]
     elif callsign.upper().endswith("/M"):
@@ -82,6 +82,9 @@ def clearCallsign(callsign):
         callsign = callsign[:-3]
     elif callsign.upper().endswith("/QRP"):
         callsign = callsign[:-4]
+
+    if "/" in callsign:
+        callsign = callsign.split("/")[-1]
 
     return callsign.upper()
 
@@ -98,10 +101,6 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
     #print(callsign)
 
     modeDict = {"CW":"CW", "PH":"SSB", "FM":"FM", "RY":"RTTY", "DG":"DG"}
-    '''bandDict = {"1800":"160m", "3500":"80m", "7000":"40m", "14000":"20m", "21000":"15m", "28000":"10m", "50":"6m", 
-                "70":"4m", "144":"2m", "222":"?m", "432":"70cm", "902":"33cm", "1.2G":"23cm", "2.3G":"13cm", 
-                "3.4G":"?cm", "5.7G":"?cm", "10G":"?cm", "24G":"?cm", "47G":"?cm", "75G":"?cm", "122G":"?cm", 
-                "134G":"?cm", "241G":"?cm", "LIGHT":"??"}'''
     
     try:
         operator_name = re.findall("NAME: (.+)", content)[0]
@@ -195,6 +194,116 @@ def process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsi
 
     return res
 
+def process_callibro_v2(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
+    """
+    https://cqwpx.com/cabrillo.htm
+    """
+
+    modeDict = {"CW":"CW", "PH":"SSB", "FM":"FM", "RY":"RTTY", "DG":"DG"}
+
+    def normalize_freq(freq):
+        if freq[-1].lower() == "g":
+            freq = int(freq)*1000000
+        elif int(freq) < 1000:
+            freq = int(freq)*1000
+        else:
+            freq = int(freq)*1
+
+        return freq
+
+    with open(filePath, "r", encoding="ISO-8859-1") as file:
+        content = file.read()
+
+    
+    try:
+        operator_name = re.findall("NAME: (.+)", content)[0]
+    except:
+        operator_name = None
+    try:
+        operator_callsign = re.findall("CALLSIGN: (.+)", content)[0]
+    except:
+        operator_callsign = None
+
+
+    logs = re.findall("QSO:.+|X-QSO:.+", content)
+    res = list()
+    for i in logs:
+        i = i.replace(":", " ")
+        line = i.split()
+
+        try:
+            freq = i[4:11].strip()
+            freq = normalize_freq(freq)
+            band = freqToBand(freq)
+        except:
+            band = "error"
+        
+        try:
+            mode = i[11:14].strip()
+            mode = modeDict[mode]
+        except:
+            mode = "error"
+        
+        try:
+            callsign = i[55:69].strip()
+            callsign = clearCallsign(callsign)
+        except:
+            callsign = "error"
+
+        date = ""
+        time = ""
+        try:
+            date = i[14:24].strip(" ")
+            time = i[25:29].strip(" ")
+            log_utc_ts = toUtcTimestamp(date, time, "%Y-%m-%d", "%H%M")
+        except Exception as e:
+            print(e)
+            log_utc_ts = "[ERROR] date:"+str(date)+"_time:"+str(time)
+
+        try:
+            qth = "none"
+        except:
+            qth = "error"
+
+        try:
+            rst_sent = i[44:48].strip()
+        except:
+            rst_sent = "error"
+
+        try:
+            rst_rec = i[69:73].strip()
+        except:
+            rst_rec = "error"
+
+
+
+        if operator_name != None and operator_name.lower() != local_callsign.lower():
+            operator = operator_name
+        elif operator_callsign != None and operator_callsign.lower() != local_callsign.lower():
+            operator = operator_callsign
+        elif fileNameCallsign != None:
+            operator = fileNameCallsign
+        elif uploadedUserCallsign != None:
+            operator = uploadedUserCallsign
+        else:
+            operator = "error"
+
+
+
+        res.append({"callsign":callsign.upper(), 
+                    "band":band, 
+                    "mode":mode,
+                    "qth":qth.lower(),
+                    "log_utc_timestamp":log_utc_ts, 
+                    "uploaded_file_name":uploadedFileName, 
+                    "upload_timestamp_utc":uploadTimestamp,
+                    "rst_sent":rst_sent,
+                    "rst_rec":rst_rec,
+                    "local_operator":operator})
+        #print(callsign, band, modeDict[mode])
+
+    return res
+
 def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, uploadedUserCallsign=None, local_callsign=None):
     """
     https://www.ok2kkw.com/ediformat.htm
@@ -223,7 +332,7 @@ def process_edi(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=No
         if band in bandDict:
             band = bandDict[band]
         else:
-            band = f"nem ismert sáv: {band}"
+            band = f"error nem ismert sáv: {band}"
     except:
         band = "error"
 
@@ -320,7 +429,6 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
     except:
 
         local_operator_name = None
-    print("----local_operator_name", local_operator_name)
 
 
     # ha külön sorba kerül minden
@@ -335,9 +443,9 @@ def process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=N
         #print("adif: ", i)
         try:
             callsign = re.findall("<call:([0-9]+)>([a-zA-Z0-9/]+)", i.lower())[0][1]
-            if "/" in callsign:
-                callsign = callsign.replace("/", "_") 
-                callsign = clearCallsign(callsign)
+            #if "/" in callsign:
+            #    callsign = callsign.replace("/", "_") 
+            callsign = clearCallsign(callsign)
         except:
             callsign = "error"
         
@@ -460,7 +568,7 @@ def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, 
     elif extension.lower() in ["adi", "adif"]:
         logLines = process_adif(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
     elif extension.lower() in ["cbr", "log"]:
-        logLines = process_callibro(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
+        logLines = process_callibro_v2(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign, uploadedUserCallsign, local_callsign)
     else:
         return "file extension error"
 
@@ -470,7 +578,9 @@ def process(filePath, uploadedFileName, uploadTimestamp, fileNameCallsign=None, 
 if __name__ == "__main__":
 
     path = "/home/ha1mp/Downloads/HA1MP-20260802.adi"
-    path = "/home/ha1mp/Downloads/HG25CCS_20260806_HA1LS_ALL_QSO.adi"
+    path = "/home/ha1mp/Downloads/HG225CCS 18m_ya_1786808476.log"
+    #path = "/home/ha1mp/Downloads/hg25ccs-ha1wd-20260815-3_1786820497.log"
+
     for i in process(filePath=path, 
                      uploadedFileName="00", 
                      uploadTimestamp=0, 
@@ -478,12 +588,11 @@ if __name__ == "__main__":
                      uploadedUserCallsign="HA1MP", 
                      local_callsign="HG25CCS"):
         print(i)
-        #pass
     
-    """
-    print(clearCallsign("ha/qrp1mp"))
-    print(clearCallsign("ha1mp/mm"))
-    print(clearCallsign("ha1mp/p"))
-    """
+    
+    #print(clearCallsign("ha/qrp1mp"))
+    #print(clearCallsign("ha1mp/mm"))
+    #print(clearCallsign("ha1mp/p"))
+    
 
 
