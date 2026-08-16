@@ -12,3 +12,5 @@ requests
 user-agents
 python-docx
 openpyxl
+
+cabrillo
