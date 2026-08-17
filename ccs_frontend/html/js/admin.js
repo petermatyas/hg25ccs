@@ -4,11 +4,7 @@ $(function() {
 
 
 
-/*$("#logUploadsSelect").on("change", () => {
-    fillLogs();
-})*/
-
-$("#logQueryBtn").on("click", () => {
+$("#logUploadsSelect").on("change", () => {
     fillLogs();
 })
 
@@ -251,12 +247,18 @@ function fillLogUploadsSelect() {
             document.getElementById("logUploadsSelect").innerHTML += `<option value="${filename};${ts}">${datetime} - ${filename}</option>`
         }
     })
+    .then(function() {
+        // A lista ujratoltese nem valt ki change esemenyt, ezert az eppen
+        // kivalasztott (elso) log tartalmat itt toltjuk be.
+        fillLogs();
+    })
 }
 
 function fillLogs() {
     removeTable('#lastLogsTable');
 
     inp = $("#logUploadsSelect").val()
+    if (!inp) return;
     let filename  = inp.split(";")[0]
     let timestamp = inp.split(";")[1]
 
