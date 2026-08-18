@@ -260,6 +260,7 @@ function fillStats() {
         set("y2026_nr_of_valid_diploma", (data["validDiploma"] || []).length);
         set("y2026_nr_of_countries", data["nr_of_countries"] || 0);
         set("y2026_participants", data["participanst_nr"] || 0);
+        set("y2026_nr_of_hungarian", data["nr_of_hungarian"] || 0);
         set("y2026_1_valid_qso", (data["1validQso"] || []).length);
         set("y2026_2_valid_qso", (data["2validQso"] || []).length);
         set("y2026_downloaded_diploma_nr", data["downlodedDiplomaNr"] || 0);
@@ -267,6 +268,7 @@ function fillStats() {
         // 2025: some fixed historical values (others left blank)
         // y2025_* fields for QSO/diploma/countries were set in HTML; set others to blank
         set("y2025_participants", "");
+        set("y2025_nr_of_hungarian", "");
         set("y2025_1_valid_qso", "");
         set("y2025_2_valid_qso", "");
         set("y2025_downloaded_diploma_nr", "");
