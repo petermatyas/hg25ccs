@@ -212,37 +212,9 @@ function removeTable(id) {
 }
 
 // Az ország statisztikából ennyi sor látszik alapból.
-const COUNTRY_LIMIT = 10;
 
 // A 10. sor utáni országok mutatása/elrejtése. A gomb felirata a rejtett
 // sorok számát mutatja; 10-nél kevesebb országnál a gomb sem jelenik meg.
-function setupCountryToggle(hiddenCount) {
-    const btn = document.getElementById("countryToggleBtn");
-    if (!btn) return;
-
-    if (hiddenCount <= 0) {
-        btn.classList.add("d-none");
-        return;
-    }
-
-    const setLabel = (opened) => {
-        btn.textContent = opened ? "Kevesebb" : `További ${hiddenCount} ország`;
-    };
-
-    btn.classList.remove("d-none");
-    setLabel(false);
-
-    // onclick (nem addEventListener): a statisztika többszöri betöltésekor se
-    // halmozódjanak a kezelők.
-    btn.onclick = () => {
-        const rows = document.querySelectorAll("#countryStatTableId tbody tr.country-extra");
-        if (!rows.length) return;
-
-        const opened = !rows[0].classList.contains("d-none");
-        rows.forEach(row => row.classList.toggle("d-none", opened));
-        setLabel(!opened);
-    };
-}
 
 function fillStats() {
     const url = `${PROTO}${HOST}${BACKENDPORT}/api/v1/statistics`;
@@ -296,8 +268,9 @@ function fillStats() {
                 let qslCell = (d.qsl_total === undefined)
                     ? "–"
                     : `${d.qsl_downloaded || 0} / ${d.qsl_total}`;
-                diplomaBody.innerHTML += `<tr><td>${d.callsign}</td><td>${diplomaCell}</td><td>${qslCell}</td></tr>`;
+                diplomaBody.innerHTML += `<tr><td>${escapeHtml(d.callsign || "")}</td><td>${diplomaCell}</td><td>${qslCell}</td></tr>`;
             });
+            applyCollapsibleRows(diplomaBody);
         }
 
         // 2-QSO participants table
@@ -307,7 +280,7 @@ function fillStats() {
             const twoDetails = data.twoQsoDetails || [];
             twoDetails.forEach(d => {
                 const qslCell = (d.qsl_total === undefined) ? "–" : `${d.qsl_downloaded} / ${d.qsl_total}`;
-                twoQsoBody.innerHTML += `<tr><td>${d.callsign}</td><td>${qslCell}</td></tr>`;
+                twoQsoBody.innerHTML += `<tr><td>${escapeHtml(d.callsign || "")}</td><td>${qslCell}</td></tr>`;
             });
             applyCollapsibleRows(twoQsoBody);
         }
@@ -355,17 +328,15 @@ function fillStats() {
         tableBody.append(totalsHtml);
 
         // Ország statisztika (a backend rekordszám szerint csökkenő sorrendben adja).
-        // Az első COUNTRY_LIMIT sor látszik, a többi elrejtve készül el, és a
-        // táblázat alatti gombbal nyitható/zárható.
-        removeTable("#countryStatTableId");
-        let countryBody = $("#countryStatTableId tbody")
-        let countries = data.countries || []
-        for (let i=0; i<countries.length; i++) {
-            let extraClass = i < COUNTRY_LIMIT ? "" : ' class="country-extra d-none"'
-            let row = `<tr${extraClass}><td>${i+1}</td><td>${countries[i].country}</td><td>${countries[i].count}</td></tr>`
-            countryBody.append(row)
+        const countryBody = document.getElementById("countryStat");
+        if (countryBody) {
+            countryBody.innerHTML = "";
+            const countries = data.countries || [];
+            countries.forEach((c, i) => {
+                countryBody.innerHTML += `<tr><td>${i + 1}</td><td>${escapeHtml(c.country || "")}</td><td>${c.count}</td></tr>`;
+            });
+            applyCollapsibleRows(countryBody);
         }
-        setupCountryToggle(countries.length - COUNTRY_LIMIT)
 
     })
 }

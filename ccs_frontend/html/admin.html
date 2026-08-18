@@ -355,19 +355,18 @@
           <div class="row my-4">
               <div class="col-md-6">
                   <h4>Ország statisztika</h4>
-                  <table class="table table-sm table-striped" id="countryStatTableId">
-                      <thead>
-                          <tr>
-                              <th scope="col">#</th>
-                              <th scope="col">Ország</th>
-                              <th scope="col">Rekordok</th>
-                          </tr>
-                      </thead>
-                      <tbody>
-                      </tbody>
-                  </table>
-                  <!-- Az első 10 ország látszik, a többit ez a gomb nyitja/zárja. -->
-                  <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="countryToggleBtn"></button>
+                  <div style="max-height: 320px; overflow:auto;">
+                      <table class="table table-sm table-striped mb-0" id="countryStatTableId">
+                          <thead>
+                              <tr>
+                                  <th scope="col">#</th>
+                                  <th scope="col">Ország</th>
+                                  <th scope="col">Rekordok</th>
+                              </tr>
+                          </thead>
+                          <tbody id="countryStat"></tbody>
+                      </table>
+                  </div>
               </div>
           </div>
         </div><!-- /tab-stats -->
